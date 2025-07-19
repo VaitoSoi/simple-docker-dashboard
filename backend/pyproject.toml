@@ -1,0 +1,9 @@
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+extend-select = ["I"]  # Enables import sorting
+
+[tool.ruff.isort]
+known-first-party = ["lib", "enums", "hash", "errors", "db"]
+combine-as-imports = true
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
