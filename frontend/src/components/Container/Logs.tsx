@@ -1,23 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { AxiosError } from "axios";
 import { useWebSocket } from "react-use-websocket/src/lib/use-websocket";
-import _ from "lodash";
+import { ReadyState } from "react-use-websocket";
 import api from "@/lib/api";
 import type { User } from "@/lib/typing";
 import { Permission } from "@/lib/enums";
 import { error } from "@/hooks/toasts";
 import { Forbidden, Loading } from "@/components/ui/whale";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "../ui/label";
 
-export default function ({ id }: { id: string }) {
+export default function ({ id, reload }: { id: string, reload: boolean }) {
     const token = localStorage.getItem("token");
 
     const dumpItem = useRef(null);
     const chunks = useRef<string[]>([]);
     const [url, setUrl] = useState<string>("");
     const [logs, setLogs] = useState<string[]>([]);
-    const { lastMessage, getWebSocket } = useWebSocket(url);
+    const { lastMessage, getWebSocket, readyState } = useWebSocket(url);
     useEffect(() => {
         if (!lastMessage) return;
         if (lastMessage.data == "SimpleDockerDashboard_Ping") return;
@@ -81,12 +80,25 @@ export default function ({ id }: { id: string }) {
         setUrl(
             "http://localhost:8000/docker/logs" +
             `?id=${id}` +
-            `&token=${token}` +
-            `&tail=1000`
+            `&token=${token}`
         );
         return () => getWebSocket()?.close();
     }, [allowToSee]);
-
+    useEffect(() => {
+        if (readyState == ReadyState.CLOSED)
+            chunks.current.push("# Disconnected");
+    }, [readyState]);
+    useEffect(() => {
+        setUrl("");
+        setLogs([]);
+        setTimeout(() =>
+            setUrl(
+                "http://localhost:8000/docker/logs" +
+                `?id=${id}` +
+                `&token=${token}`
+            )
+        , 0);
+    }, [reload]);
 
     return <>{
         !allowToSee

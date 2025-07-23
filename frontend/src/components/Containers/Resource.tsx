@@ -45,14 +45,14 @@ export default function () {
     return <>{
         errored
             ?
-            <div className="ml-50 rounded-md border p-5 pr-40 pl-40 flex flex-col items-center">
+            <div className="rounded-md border p-5 pr-40 pl-40 flex flex-col items-center">
                 <HuhWhale className="size-30" />
                 <p className="text-center text-2xl">Error occured when connect to API</p>
             </div>
-            : <div className="mt-6 ml-50">
-                <p> <span className="text-3xl font-bold">📊 Resource Usage</span><span className="m-1" /><span className="text-2xl font">(Docker / System / Total)</span></p>
-                <div className="text-2xl mt-5 flex flex-row items-center">
-                    <div className="w-100 flex flex-row items-center">
+            : <div>
+                <p> <span className="text-3xl font-bold">📊 Resource Usage</span><span className="text-2xl ml-2 font">(Docker / System / Total)</span></p>
+                <div className="text-2xl mt-5 flex flex-row items-center gap-10">
+                    <div className="flex flex-row items-center">
                         <Cpu strokeWidth={1.5} className="h-12 w-12" />
                         <p className="ml-2">{
                             cpu

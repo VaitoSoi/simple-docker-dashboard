@@ -44,11 +44,14 @@ def _format_container(container: Container) -> FormattedContainer:
 
 
 def _format_port_mapping(
-    port_mapping: Dict[str, List[Dict[Literal["HostIp"] | Literal["HostPort"], str]]],
+    port_mapping: Dict[str, List[Dict[Literal["HostIp"] | Literal["HostPort"], str]] | None],
 ) -> List[str]:
     maps: List[str] = []
 
     for private_port, configs in port_mapping.items():
+        if configs is None:
+            continue
+
         for config in configs:
             ip = config["HostIp"] if config["HostIp"] != "::" else "[::]"
             port = config["HostPort"]
@@ -244,9 +247,13 @@ class ResourceMetrics(BaseModel):
     total: float
 
 
-class ResourceUsage(BaseModel):
+class ResourceUsages(BaseModel):
     memory: ResourceMetrics
     cpu: ResourceMetrics
+
+class ResourceUsage(BaseModel):
+    cpu: float
+    memory: float
 
 
 async def _measure_container_resources(container: Container) -> Tuple[float, float]:
@@ -306,7 +313,7 @@ async def _measure_container_resources(container: Container) -> Tuple[float, flo
         return 0.0, 0.0
 
 
-async def get_resource_usage() -> ResourceUsage:
+async def get_resource_usages() -> ResourceUsages:
     """
     Calculate Docker and System resource usage.
 
@@ -357,7 +364,7 @@ async def get_resource_usage() -> ResourceUsage:
         docker_memory_usage = 0.0
         docker_cpu_usage = 0.0
 
-    return ResourceUsage(
+    return ResourceUsages(
         memory=ResourceMetrics(
             docker=round(docker_memory_usage, 2),
             system=round(system_memory_used_gb, 2),
@@ -369,3 +376,8 @@ async def get_resource_usage() -> ResourceUsage:
             total=float(cpu_count),
         ),
     )
+
+async def get_resource_usage(id: str):
+    container = await _get_container(id)
+    memory, cpu = await _measure_container_resources(container)
+    return ResourceUsage(cpu=cpu, memory=memory)

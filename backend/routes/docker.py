@@ -23,6 +23,7 @@ from lib.docker import (
     get_image,
     get_images,
     get_resource_usage,
+    get_resource_usages,
     inspect_container,
     kill_container,
     remove_container,
@@ -281,4 +282,13 @@ async def delete_image_api(id: str):
 )
 async def get_resource(id: str | None = None):
     if not id:
-        return await get_resource_usage()
+        return await get_resource_usages()
+    else:
+        try:
+            return await get_resource_usage(id)
+        
+        except ContainerNotFound:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"message": "container not found", "id": id}
+            )

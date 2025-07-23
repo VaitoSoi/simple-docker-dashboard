@@ -66,7 +66,9 @@ export function List() {
                             <p className="text-5xl font-semibold">Containers</p>
                             <p className="text-2xl mt-1 ml-1">View all your running containers</p>
                         </div>
-                        <Resource />
+                        <div className="ml-auto">
+                            <Resource />
+                        </div>
                     </div>
                     <div className="mt-5">
                         <ListContainer />

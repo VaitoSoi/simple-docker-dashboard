@@ -1,6 +1,7 @@
 import { useEffect, useState, type JSX } from "react";
 import ms from "ms";
 import api from "../../lib/api";
+import { type APIContainer } from "@/lib/typing";
 import {
     Table,
     TableBody,
@@ -29,16 +30,6 @@ import { error, info, success } from "@/hooks/toasts";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import net from "net";
 import url from "url";
-
-interface APIContainer {
-    id: string,
-    short_id: string,
-    name: string,
-    image: string,
-    created: string,
-    status: string,
-    ports: string[],
-}
 
 interface Container extends APIContainer {
     imageHubUrl: string,
