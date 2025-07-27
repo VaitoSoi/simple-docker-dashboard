@@ -25,5 +25,3 @@ This also provide you a role-base system for access manager.
 |Backend|Python|[FastAPI](https://fastapi.tiangolo.com/)|[Python](https://www.python.org/)|8000|
 |Frontend|TypeScript|[React](https://react.dev/)|[Bun](https://bun.sh)|8080
 
-**Notes:** You can only change the port through config the Dockerfile at the frontend and backend folder
-
