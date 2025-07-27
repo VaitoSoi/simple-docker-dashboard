@@ -3,10 +3,10 @@ services:
     build: ./backend
     ports:
       - 8000:8000
+    env_file: docker.env
     volumes:
       # - ./backend/database.db:/backend/database.db 
       - /var/run/docker.sock:/var/run/docker.sock # To communicate with Docker Engine
-    env_file: docker.env
     networks:
       - sdd
 
@@ -14,8 +14,7 @@ services:
     build: ./frontend
     ports:
       - 8080:8080
-    environment:
-      - SDD_BACKEND_URL=http://localhost:8000
+    env_file: docker.env
     networks:
       - sdd
 
