@@ -7,6 +7,6 @@ WORKDIR /front-end
 COPY ./package.json /front-end/package.json
 RUN bun add .
 
-VOLUME /front-end
+COPY . /front-end
 
-CMD ["bun", "run", "dev"]
+CMD ["bun", "start"]
