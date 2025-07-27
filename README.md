@@ -10,10 +10,11 @@ This also provide you a role-base system for access manager.
 
 1. Download [Docker](https://www.docker.com/products/docker-desktop/)
 2. Pull [this repo](https://github.com/vaitosoi/simple-docker-dashboard/)
-3. Create file `docker.env`:
+3. Edit file `docker.env`:
 
     ```
     SIGNATURE=<A random string>
+    <Keep the rest>
     ```
 4. Run `docker compose up`
 5. Go to [Dashboard](http://localhost:8080) and use it :D
