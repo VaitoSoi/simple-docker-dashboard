@@ -7,4 +7,4 @@ RUN bun add .
 
 COPY . /front-end
 
-CMD ["sh", "-c", "bun start --port=$DASHBOARD_PORT"]
+CMD ["bun", "start"]
