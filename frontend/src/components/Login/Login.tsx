@@ -9,26 +9,31 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@radix-ui/react-menubar";
 import api from "@/lib/api";
 import { useNavigate } from "react-router";
 import { error, success } from "@/hooks/toasts";
+import type { LoginResponse } from "@/lib/typing";
+import { AxiosError } from "axios";
+import { Label } from "../ui/label";
+import { UsernameRegex } from "@/lib/enums";
 
 export default function () {
     const navigator = useNavigate();
 
-    const [isOnLoginPage, setIsOnLoginPage] = useState(true);
-    const [username, setUsername] = useState("");
-    const [password, setPassword] = useState("");
-    const [confirmPassword, setConfirmPassword] = useState("");
+    const [isOnLoginPage, setIsOnLoginPage] = useState<boolean>(true);
+    const [username, setUsername] = useState<string>("");
+    const [password, setPassword] = useState<string>("");
+    const [confirmPassword, setConfirmPassword] = useState<string>("");
 
-    const [notFillUsername, setNotFillUserName] = useState(false);
-    const [notFillPassword, setNotFillPassword] = useState(false);
-    const [notFillConfirmPassword, setNotFillConfirmPassword] = useState(false);
-    const [notMatchPassword, setNotMatchPassword] = useState(false);
+    const [invalidUsername, setInvalidUsername] = useState<boolean>(false);
+    const [invalidPassword, setInvalidPassword] = useState<boolean>(false);
+    const [notFillUsername, setNotFillUserName] = useState<boolean>(false);
+    const [notFillPassword, setNotFillPassword] = useState<boolean>(false);
+    const [notFillConfirmPassword, setNotFillConfirmPassword] = useState<boolean>(false);
+    const [notMatchPassword, setNotMatchPassword] = useState<boolean>(false);
 
-    const [userNotFound, setUserNotFound] = useState(false);
-    const [wrongPassword, setWrongPassword] = useState(false);
+    const [userNotFound, setUserNotFound] = useState<boolean>(false);
+    const [wrongPassword, setWrongPassword] = useState<boolean>(false);
 
     function switchSide() {
         setNotFillUserName(false);
@@ -39,6 +44,57 @@ export default function () {
         setConfirmPassword("");
         setIsOnLoginPage(!isOnLoginPage);
     };
+
+    async function login() {
+        const loginForm = new FormData();
+        loginForm.set("username", username);
+        loginForm.set("password", password);
+        try {
+            const response = await api.post<LoginResponse>("/user/login", loginForm);
+            localStorage.setItem("token", response.data.access_token);
+            localStorage.setItem("username", response.data.user.username);
+            success("Logined");
+            navigator("/");
+        } catch (err) {
+            if (err instanceof AxiosError) {
+                if (err.status == 404)
+                    setUserNotFound(true);
+                else if (err.status == 401)
+                    setWrongPassword(true);
+            }
+            if (err instanceof Error)
+                error(err.message);
+            console.error(err);
+        }
+    }
+
+    async function signup() {
+        try {
+            await api.post('/user', {
+                username,
+                password
+            });
+            success("Sign up successfully");
+            switchSide();
+        } catch (err) {
+            if (err instanceof AxiosError) {
+                if (err.status == 409) {
+                    const data = err.response.data;
+                    const message: string = data.detail.message;
+                    if (message == "username already existed")
+                        error("Username already existed");
+                    else if (message == "invalid username")
+                        error("Invalid username");
+                    else if (message == "invalid password")
+                        error("Invalid password");
+                }
+            } else {
+                console.error(err);
+                if (err instanceof Error) 
+                    error(err.message);
+            }
+        }
+    }
 
     return <div className="h-150 w-250 m-auto rounded-2xl border-2 border-gray-400 flex flex-row relative overflow-hidden">
         {/* Left Card - Info/Placeholder Card */}
@@ -51,7 +107,7 @@ export default function () {
                 <p className="text-lg text-center w-10/12">This is a very simple Docker Dashboard. Allow you to monitor your Docker container, also view your container logs</p>
             </div>
         </div>
-        {/* Right Card - Login/Signup Form */}
+        {/* Login */}
         <Card className={`w-1/2 h-full absolute transition-all duration-700 ease-in-out z-0 ${isOnLoginPage
             ? 'translate-x-full opacity-100 z-10 rounded-tl-none rounded-bl-none rounded-tr-2xl rounded-br-2xl'
             : 'translate-x-0 opacity-0 z-0'}`}>
@@ -114,32 +170,7 @@ export default function () {
                             if (!username || !password) {
                                 setNotFillUserName(!username);
                                 setNotFillPassword(!password);
-                            } else {
-                                const loginForm = new FormData();
-                                loginForm.set("username", username);
-                                loginForm.set("password", password);
-                                try {
-                                    const response = await api.post<{
-                                        access_token: string, [keys: string]: string
-                                    }>("/user/login", loginForm, {
-                                        validateStatus: () => true
-                                    });
-                                    if (response.status != 200) {
-                                        if (response.status == 404)
-                                            setUserNotFound(true);
-                                        else if (response.status == 401)
-                                            setWrongPassword(true);
-                                    } else {
-                                        localStorage.setItem("token", response.data.access_token);
-                                        success("Logined");
-                                        navigator("/");
-                                    }
-                                } catch (err) {
-                                    if (err instanceof Error)
-                                        error(err.message);
-                                    console.error(err);
-                                }
-                            }
+                            } else login();
                         }}
                     >
                         Login
@@ -150,6 +181,8 @@ export default function () {
                 </CardFooter>
             </div>
         </Card>
+
+        {/* Sign up */}
         <Card className={`w-1/2 h-full absolute transition-all duration-700 ease-in-out z-0 ${isOnLoginPage
             ? 'translate-x-full opacity-0 z-0'
             : 'translate-x-0 opacity-100 z-10 rounded-tr-none rounded-br-none rounded-tl-2xl rounded-bl-2xl'}`}>
@@ -171,11 +204,16 @@ export default function () {
                             onChange={(e) => {
                                 setUsername(e.target.value);
                                 setNotFillUserName(false);
+                                setInvalidUsername(false);
                             }}
                         />
                         {
                             notFillUsername
                             && <p className="text-red-500">* Please fill this field</p>
+                        }
+                        {
+                            invalidUsername
+                            && <p className="text-red-500">* Your username is invalid (allow 0-9, a-z, and underscore)</p>
                         }
                     </div>
                     <div className="grid gap-2">
@@ -187,11 +225,16 @@ export default function () {
                             onChange={(e) => {
                                 setPassword(e.target.value);
                                 setNotFillPassword(false);
+                                setInvalidPassword(false);
                             }}
                         />
                         {
                             notFillPassword
                             && <p className="text-red-500">* Please fill this field</p>
+                        }
+                        {
+                            invalidPassword
+                            && <p className="text-red-500">* Your password is too short (at least 8 characters)</p>
                         }
                     </div>
                     <div className="grid gap-2">
@@ -228,6 +271,11 @@ export default function () {
                             else if (password != confirmPassword) {
                                 setNotMatchPassword(true);
                             }
+                            else if (!UsernameRegex.test(username))
+                                setInvalidUsername(true);
+                            else if (password.length < 8)
+                                setInvalidPassword(true);
+                            else signup();
                         }}
                     >
                         Sign up

@@ -1,14 +1,14 @@
-import { Container } from "lucide-react";
+import { Container, Scroll } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import Resource from "@/components/Containers/Resource";
-import ListContainer from "@/components/Containers/ListContainer";
 import api from "@/lib/api";
 import type { APIUser } from "@/lib/typing";
 import { error } from "@/hooks/toasts";
 import { Permission } from "@/lib/enums";
 import { Forbidden, Huh, HuhError, Loading } from "@/components/ui/icon";
 import { AxiosError } from "axios";
+import ListImage from "@/components/Images/ListImage";
 
 export function List() {
     const navigator = useNavigate();
@@ -66,17 +66,14 @@ export function List() {
                 </div>
                 : <div className="w-full h-9/10 mt-20 ml-10 flex flex-col">
                     <div className="flex ml-3 items-center">
-                        <Container className="w-40 h-40" color="#006eff" strokeWidth={1} />
+                        <Scroll className="w-40 h-40" color="#006eff" strokeWidth={1} />
                         <div className="mt-7 ml-5">
-                            <p className="text-5xl font-semibold">Containers</p>
-                            <p className="text-2xl mt-1 ml-1">View all your running containers</p>
-                        </div>
-                        <div className="ml-auto mr-20">
-                            <Resource />
+                            <p className="text-5xl font-semibold">Images</p>
+                            <p className="text-2xl mt-1 ml-1">View all your images</p>
                         </div>
                     </div>
                     <div className="mt-5">
-                        <ListContainer />
+                        <ListImage />
                     </div>
                 </div>
         }</>

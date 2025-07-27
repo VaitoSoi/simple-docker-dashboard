@@ -15,31 +15,40 @@ from lib.db import (
 )
 from lib.dependency import get_role_deps, get_roles_deps, get_user_deps
 from lib.enums import Permission
-from lib.errors import InvalidRoleName, NotAllowed, RoleExisted, RoleNotFound
+from lib.errors import (
+    InvalidRoleHex,
+    InvalidRoleName,
+    NotAllowed,
+    RoleExisted,
+    RoleNotFound,
+)
 from lib.security import token_has_permission
 
-router = APIRouter(
-    prefix="/role",
-    tags=["role"]
-)
+router = APIRouter(prefix="/role", tags=["role"])
 
 
 @router.get(
-    path="/gets", dependencies=[Depends(token_has_permission([Permission.SeeRole]))]
+    path="/", dependencies=[Depends(token_has_permission([Permission.SeeRoles]))]
 )
-def get_roles_api():
-    return get_roles()
+def get_role(id: str | None = None, all: bool | None = None):
+    if all:
+        return get_roles()
+
+    else:
+        return get_role_deps(True)(id)
 
 
 @router.get(
-    path="/get", dependencies=[Depends(token_has_permission([Permission.SeeRole]))]
+    path="/permissions",
+    dependencies=[Depends(token_has_permission([Permission.SeePermissions]))],
 )
-def get_role(role: Annotated[DBRole, Depends(get_role_deps(True))]):
-    return role
-
+def get_permission():
+    return {
+        permission.name: permission.value for permission in Permission
+    }
 
 @router.post(
-    path="/create",
+    path="/",
     dependencies=[Depends(token_has_permission([Permission.CreateRole]))],
 )
 def create_role(role: APIRole):
@@ -55,20 +64,26 @@ def create_role(role: APIRole):
         )
 
 
-@router.post(
+@router.put(
     path="/grant", dependencies=[Depends(token_has_permission([Permission.GrantRoles]))]
 )
 def grant_role(
     target: Annotated[User, Depends(get_user_deps(True))],
     roles: Annotated[List[DBRole], Depends(get_roles_deps)],
 ):
+    if target.id == "@admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"message": "you can't edit admin user"},
+        )
+
     new_user = update_roles(target, roles)
 
     return JSONResponse({"message": "updated", "user": new_user.model_dump()})
 
 
 @router.put(
-    path="/update",
+    path="/",
     dependencies=[Depends(token_has_permission([Permission.UpdateRole]))],
 )
 def update_role_api(
@@ -84,15 +99,17 @@ def update_role_api(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"message": "invalid role name"},
         )
-
-    except NotAllowed as e:
+    
+    except InvalidRoleHex:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail={"message": str(e)}
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"message": "invalid role hex"},
         )
 
 
+
 @router.delete(
-    path="/delete",
+    path="/",
     dependencies=[Depends(token_has_permission([Permission.DeleteRole]))],
 )
 def delete_role_api(role: Annotated[DBRole, Depends(get_role_deps(True))]):
@@ -101,6 +118,11 @@ def delete_role_api(role: Annotated[DBRole, Depends(get_role_deps(True))]):
 
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
+    except NotAllowed as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail={"message": str(e)}
+        )
+    
     except RoleNotFound:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

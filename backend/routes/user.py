@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse, Response
 from fastapi.security import OAuth2PasswordRequestForm
 
 from lib.db import (
+    APIUpdateUser,
     APIUser,
     User,
     delete_user,
@@ -74,34 +75,37 @@ async def login(
     return {"access_token": token, "token_type": "bearer", "user": user.model_dump()}
 
 
-@router.get("/gets", dependencies=[Depends(token_has_permission([Permission.SeeUser]))])
-async def get_users_api():
-    return get_users()
+@router.get("/", dependencies=[Depends(token_has_permission([Permission.SeeUsers]))])
+async def get_user_api(
+    id: str | None = None, username: str | None = None,
+    all: bool | None = None
+):
+    if all:
+        return get_users()
+    
+    else:
+        try:
+            return get_user(id, username)
 
+        except MissingError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"message": "missing id or username"},
+            )
 
-@router.get("/get", dependencies=[Depends(token_has_permission([Permission.SeeUser]))])
-async def get_user_api(id: str | None = None, username: str | None = None):
-    try:
-        return get_user(id, username)
-
-    except MissingError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"message": "missing id or username"},
-        )
-
-    except UserNotFound:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"message": "user not found", "id": id, "username": username},
-        )
+        except UserNotFound:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"message": "user not found", "id": id, "username": username},
+            )
 
 
 @router.get(
     "/has_permissions",
 )
 async def has_permission(
-    user: Annotated[User, Depends(get_user_from_token)], permissions: str
+    user: Annotated[User, Depends(get_user_from_token)], 
+    permissions: str
 ):
     check_user_has_permission(
         user,
@@ -114,7 +118,7 @@ async def has_permission(
     return JSONResponse({ "message": "ok" })
 
 
-@router.post("/create")
+@router.post("/")
 async def create_user(user: APIUser):
     try:
         _new_user = new_user(user)
@@ -141,39 +145,56 @@ async def create_user(user: APIUser):
         )
 
 
-@router.put(path="/update")
+@router.put(path="/")
 def update_user_api(
     user: Annotated[User, Depends(get_user_from_token)],
-    new_user: APIUser,
+    new_user: APIUpdateUser,
     target: Annotated[User | None, Depends(get_user_deps(False))],
 ):
-    if not target or (user.id == target):
-        new_user_ = update_user(new_user, id=user.id, username=user.username)
+    try:
+        if not target or (user.id == target.id):
+            new_user_ = update_user(new_user, id=user.id, username=user.username)
 
-        return JSONResponse({"message": "updated", "user": new_user_})
+            return JSONResponse({"message": "updated", "user": new_user_.model_dump()})
 
-    elif target and (user.id != target):
-        check_user_has_permission(user, [Permission.UpdateUser])
+        elif target and (user.id != target.id):
+            check_user_has_permission(user, [Permission.UpdateUsers])
 
-        new_user_ = update_user(
-            id=target.id, username=target.username, new_user=new_user
+            new_user_ = update_user(
+                id=target.id, username=target.username, new_user=new_user
+            )
+
+            return JSONResponse({"message": "updated", "user": new_user_.model_dump()})
+
+    except UserExisted:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"message": "username already existed"},
         )
 
-        return JSONResponse({"message": "updated", "user": new_user_.model_dump()})
+    except InvalidUsername:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail={"message": "invalid username"}
+        )
+
+    except InvalidPassword:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail={"message": "invalid password"}
+        )
 
 
-@router.delete(path="/delete")
+@router.delete(path="/")
 def delete_user_api(
     user: Annotated[User, Depends(get_user_from_token)],
     target: Annotated[User | None, Depends(get_user_deps(False))],
 ):
-    if not target or (user.id == target):
+    if not target or (user.id == target.id):
         delete_user(id=user.id, username=user.username)
 
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     elif target and (user.id != target):
-        check_user_has_permission(user, [Permission.DeleteUser])
+        check_user_has_permission(user, [Permission.DeleteUsers])
 
         delete_user(id=target.id, username=target.username)
 

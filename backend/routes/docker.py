@@ -91,7 +91,7 @@ async def inspect_container_api(id: str):
 )
 async def top_container_api(id: str):
     try:
-        return await top_container(id)
+        return await top_container(id) or []
     
     except ContainerNotFound:
         raise HTTPException(

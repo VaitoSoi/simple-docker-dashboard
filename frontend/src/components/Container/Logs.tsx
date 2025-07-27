@@ -3,10 +3,10 @@ import { AxiosError } from "axios";
 import { useWebSocket } from "react-use-websocket/src/lib/use-websocket";
 import { ReadyState } from "react-use-websocket";
 import api from "@/lib/api";
-import type { User } from "@/lib/typing";
+import type { APIUser } from "@/lib/typing";
 import { Permission } from "@/lib/enums";
 import { error } from "@/hooks/toasts";
-import { Forbidden, Loading } from "@/components/ui/whale";
+import { Forbidden, Loading } from "@/components/ui/icon";
 import { Switch } from "@/components/ui/switch";
 
 export default function ({ id, reload }: { id: string, reload: boolean }) {
@@ -36,7 +36,7 @@ export default function ({ id, reload }: { id: string, reload: boolean }) {
     useEffect(() => void getPermission(), []);
     async function getPermission() {
         try {
-            await api.get<User>(
+            await api.get<APIUser>(
                 `/user/has_permissions?permissions=${Permission.SeeLogs}`,
                 {
                     headers: {

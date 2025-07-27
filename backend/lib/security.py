@@ -1,7 +1,4 @@
-import hashlib
-import os
 from typing import Annotated, List
-from uuid import uuid4
 
 import jwt
 from fastapi import Depends, HTTPException, status
@@ -9,12 +6,10 @@ from fastapi.security import OAuth2PasswordBearer
 
 from lib.db import User, get_user, user_has_permission
 from lib.enums import Permission
+from lib.env import SIGNATURE as signature
 from lib.errors import UserNotFound
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login")
-signature = os.getenv(
-    "SIGNATURE", hashlib.sha256(uuid4().__str__().encode()).hexdigest()
-)
 
 
 def decode_jwt(token: str, verify_expiration: bool = True):
@@ -71,5 +66,5 @@ def check_user_has_permission(user: User, permissions: List[Permission]):
     if not user_has_permission(user, permissions):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail={"message": "missing one of permission", "permissions": permissions},
+            detail={"message": "missing one of permission", "permissions": [permission.value for permission in permissions]},
         )

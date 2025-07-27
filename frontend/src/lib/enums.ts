@@ -10,25 +10,24 @@ export enum Permission {
     StopContainer = 16,
     RemoveContainer = 17,
     SeeLogs = 18,
-    Resource = 29,
+    Resource = 19,
 
     Images = 20,
     SeeImages = 21,
     DeleteImage = 22,
 
-    Deploy = 30,
-    SeeDeploy = 31,
-    ConfigDeploy = 32,
+    Roles = 30,
+    SeeRoles = 31,
+    CreateRole = 32,
+    GrantRoles = 33,
+    UpdateRole = 34,
+    DeleteRole = 35,
+    SeePermissions = 36,
 
-    Roles = 40,
-    SeeRole = 41,
-    CreateRole = 42,
-    GrantRoles = 43,
-    UpdateRole = 44,
-    DeleteRole = 45,
-
-    Users = 50,
-    SeeUser = 51,
-    UpdateUser = 52,
-    DeleteUser = 53,
+    Users = 40,
+    SeeUsers = 41,
+    UpdateUsers = 42,
+    DeleteUsers = 43,
 }
+
+export const UsernameRegex = /^[0-9a-z_]+$/;

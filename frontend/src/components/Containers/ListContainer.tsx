@@ -1,7 +1,7 @@
-import { useEffect, useState, type JSX } from "react";
+import { useEffect, useState } from "react";
 import ms from "ms";
 import api from "../../lib/api";
-import { type APIContainer } from "@/lib/typing";
+import { type APIContainer, type APIImage } from "@/lib/typing";
 import {
     Table,
     TableBody,
@@ -22,24 +22,25 @@ import {
     getPaginationRowModel,
     useReactTable,
 } from "@tanstack/react-table";
-import { ChevronLeft, ChevronRight, MoreVertical, Play, RefreshCw, Scroll, Square, Trash2 } from "lucide-react";
+import {
+    ChevronLeft,
+    ChevronRight,
+    ExternalLink,
+    MoreVertical,
+    Play,
+    RefreshCw,
+    Scroll,
+    Square,
+    Trash2
+} from "lucide-react";
 import { useNavigate } from "react-router";
-import { HuhError, HuhWhale } from "@/components/ui/whale";
+import { HuhError } from "@/components/ui/icon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { error, info, success } from "@/hooks/toasts";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
-import net from "net";
-import url from "url";
 
 interface Container extends APIContainer {
     imageHubUrl: string,
-}
-
-interface APIImage {
-    id: string
-    short_id: string,
-    tags: string[],
-    hub_url: string
 }
 
 export default function () {
@@ -47,7 +48,7 @@ export default function () {
 
     const navigator = useNavigate();
 
-    const [containers, setContainers] = useState<Container[]>([]);
+    const [containers, setContainers] = useState<APIContainer[]>([]);
     const [errored, setErrored] = useState<boolean>(false);
     const [isRunningCommand, setIsRunningCommand] = useState<boolean>(false);
 
@@ -64,25 +65,25 @@ export default function () {
                 }
             );
 
-            const containers: Container[] = [];
-            for (const apiContainer of response.data) {
-                const imageResponse = await api.get<APIImage>(
-                    `/docker/image?id=${apiContainer.image}`,
-                    {
-                        headers: {
-                            Authorization: `Bearer ${token}`
-                        }
-                    }
-                );
-                containers.push(
-                    {
-                        ...apiContainer,
-                        imageHubUrl: imageResponse.data.hub_url
-                    }
-                );
-            }
+            // const containers: Container[] = [];
+            // for (const apiContainer of response.data) {
+            //     const imageResponse = await api.get<APIImage>(
+            //         `/docker/image?id=${apiContainer.image}`,
+            //         {
+            //             headers: {
+            //                 Authorization: `Bearer ${token}`
+            //             }
+            //         }
+            //     );
+            //     containers.push(
+            //         {
+            //             ...apiContainer,
+            //             imageHubUrl: imageResponse.data.hub_url
+            //         }
+            //     );
+            // }
 
-            setContainers(containers);
+            setContainers(response.data);
             setIsRunningCommand(false);
 
             // setContainers(Array.from({ length: 50 }).map<Container>(() => ({
@@ -199,7 +200,7 @@ export default function () {
 
 
     const [filter, setFilter] = useState<ColumnFiltersState>([]);
-    const table = useReactTable<Container>({
+    const table = useReactTable<APIContainer>({
         columns: [
             {
                 id: "status",
@@ -217,7 +218,7 @@ export default function () {
                     const status = row.original.status;
                     return <div className="flex items-center gap-1.5">
                         <span className={`w-5 h-5 rounded-full ${status == "running" ? "bg-green-400" : "bg-gray-400"}`} />
-                        {name}
+                        <a className="text-blue-500 hover:underline" href={`/container/${name}`}>{name}</a>
                     </div>;
                 }
             },
@@ -230,7 +231,6 @@ export default function () {
                 id: "image",
                 header: "Image",
                 accessorKey: "image",
-                cell: ({ row, getValue }) => <a className="text-blue-500 hover:underline" href={row.original.imageHubUrl}>{getValue()}</a>
             },
             {
                 id: "lastStarted",
@@ -269,14 +269,14 @@ export default function () {
                                 {!isRunning
                                     ? <Button
                                         variant="ghost"
-                                        className="hover:text-green-500"
+                                        className="cursor-pointer hover:text-green-500"
                                         onClick={() => !isRunning && start(id)}
                                     >
-                                        <Play className="size-6 cursor-pointer" />
+                                        <Play className="size-6" />
                                     </Button>
                                     : <Button
                                         variant="ghost"
-                                        className="hover:text-red-500"
+                                        className="cursor-pointer hover:text-red-500"
                                         onClick={() => isRunning && stop(id)}
                                     >
                                         <Square className="size-6" />
@@ -288,6 +288,7 @@ export default function () {
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent>
                                         <DropdownMenuItem
+                                            className="cursor-pointer"
                                             disabled={!isRunning}
                                             onClick={() => restart(id)}
                                         >
@@ -295,6 +296,7 @@ export default function () {
                                             <p>Restart</p>
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
+                                            className="cursor-pointer"
                                             disabled={!isRunning}
                                             onClick={() => kill(id)}
                                         >
@@ -302,12 +304,14 @@ export default function () {
                                             <p>Kill</p>
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
+                                            className="cursor-pointer"
                                             onClick={() => navigator(`/container/${name || shortId}`)}
                                         >
                                             <Scroll />
                                             <p>Details</p>
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
+                                            className="cursor-pointer"
                                             disabled={isRunning}
                                             onClick={() => remove(id)}
                                         >

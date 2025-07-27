@@ -40,6 +40,9 @@ class InvalidPassword(Invalid):
 class InvalidRoleName(Invalid):
     ...
 
+class InvalidRoleHex(Invalid):
+    ...
+
 class NotAllowed(Exception):
     ...
 

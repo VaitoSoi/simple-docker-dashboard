@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import api from "../../lib/api";
 import { Cpu, MemoryStick } from "lucide-react";
-import { AngyWhale, HuhWhale, Whale } from "../ui/whale";
+import { AngyWhale, HuhWhale, Whale } from "../ui/icon";
+import { AxiosError } from "axios";
 
 interface ResourceUsage {
     docker: number,
@@ -13,6 +14,7 @@ export default function () {
     const [memory, setMemory] = useState<ResourceUsage>();
     const [cpu, setCpu] = useState<ResourceUsage>();
     const [errored, setErrored] = useState<boolean>(false);
+    const [allowToSee, setAllowToSee] = useState<boolean>(true);
 
     const token = localStorage.getItem("token");
 
@@ -33,7 +35,10 @@ export default function () {
             setMemory(data.data.memory);
             setCpu(data.data.cpu);
         } catch (e) {
-            setErrored(true);
+            if (e instanceof AxiosError && e.status == 403)
+                setAllowToSee(false);
+            else
+                setErrored(true);
             clearRefreshInterval();
         }
     }
@@ -43,12 +48,18 @@ export default function () {
     }, []);
 
     return <>{
-        errored
-            ?
-            <div className="rounded-md border p-5 pr-40 pl-40 flex flex-col items-center">
-                <HuhWhale className="size-30" />
-                <p className="text-center text-2xl">Error occured when connect to API</p>
-            </div>
+        errored || !allowToSee
+            ? <div className="rounded-md border p-5 pr-40 pl-40 flex flex-col items-center">
+                {!allowToSee
+                    ? <>
+                        <AngyWhale className="size-30" />
+                        <p className="text-center text-2xl">You are not allow to see metrics</p>
+                    </>
+                    : <>
+                        <HuhWhale className="size-30" />
+                        <p className="text-center text-2xl">Error occured when connect to API</p>
+                    </>
+                }</div>
             : <div>
                 <p> <span className="text-3xl font-bold">📊 Resource Usage</span><span className="text-2xl ml-2 font">(Docker / System / Total)</span></p>
                 <div className="text-2xl mt-5 flex flex-row items-center gap-10">

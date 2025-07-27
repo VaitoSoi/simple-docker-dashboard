@@ -20,7 +20,7 @@ export default [
                 ...globals.node,
             },
             ecmaVersion: 2022,
-            sourceType: 'module',
+            sourceType: 'module'
         }
     },
     pluginJs.configs.recommended,
@@ -82,11 +82,6 @@ export default [
                     format: ['PascalCase'],
                 },
             ],
-        },
-    },
-    {
-        languageOptions: {
-
         },
     },
 ];

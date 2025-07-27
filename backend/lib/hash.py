@@ -1,11 +1,11 @@
-import os
 from typing import Callable
 
 from argon2 import PasswordHasher
 
+from lib.env import USE_HASH as use_hash_func
+
 argon2_hasher = PasswordHasher()
 
-use_hash_func = os.getenv("USE_HASH", "true").lower() == "true"
 hash_func: Callable[[str], str] = \
     argon2_hasher.hash \
     if use_hash_func else \

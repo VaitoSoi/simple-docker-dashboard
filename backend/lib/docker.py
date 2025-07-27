@@ -4,6 +4,7 @@ from queue import Queue
 from threading import Thread
 from typing import Any, Dict, Generator, List, Literal, Tuple, cast
 
+# import aiohttp
 import docker
 import psutil
 from docker.errors import ImageNotFound, NotFound
@@ -36,7 +37,7 @@ def _format_container(container: Container) -> FormattedContainer:
         id=container.id or container.short_id,
         short_id=container.short_id,
         name=container.name,
-        image=container.image.tags[0] if container.image else "None",
+        image=container.image.tags[0] if container.image and len(container.image.tags) else "None",
         created=container.attrs["Created"],
         status=container.status,
         ports=_format_port_mapping(container.attrs["NetworkSettings"]["Ports"]),
@@ -44,7 +45,9 @@ def _format_container(container: Container) -> FormattedContainer:
 
 
 def _format_port_mapping(
-    port_mapping: Dict[str, List[Dict[Literal["HostIp"] | Literal["HostPort"], str]] | None],
+    port_mapping: Dict[
+        str, List[Dict[Literal["HostIp"] | Literal["HostPort"], str]] | None
+    ],
 ) -> List[str]:
     maps: List[str] = []
 
@@ -116,44 +119,41 @@ async def inspect_container(id: str):
     container = await _get_container(id)
     return container.attrs
 
-async def top_container(id: str):
+async def top_container(id: str) -> List[Dict[str, str]] | None:
     container = await _get_container(id)
 
-    raw_top = cast(Dict[Literal['Processes'] | Literal['Titles'], List[Any]], container.top())
+    if container.status != "running":
+        return
+
+    raw_top = cast(
+        Dict[Literal["Processes"] | Literal["Titles"], List[Any]], container.top()
+    )
     output: List[Dict[str, str]] = []
-    for processInfos in raw_top['Processes']:
+    for processInfos in raw_top["Processes"]:
         obj: Dict[str, str] = {}
-        for (index, info) in enumerate(processInfos):
+        for index, info in enumerate(processInfos):
             obj[raw_top["Titles"][index]] = info
         output.append(obj)
 
     return output
 
 
-
 async def docker_logs_stream(
-    id: str,
-    tail: int | None
+    id: str, tail: int | None
 ) -> Tuple[Queue[str], Generator[bytes]]:
     try:
         log_queue: Queue[str] = Queue()
 
         container = await _get_container(id)
         log_stream = container.logs(
-            stream=True, 
-            follow=True, 
-            stdout=True, 
-            stderr=True,
-            tail=tail or "all"
+            stream=True, follow=True, stdout=True, stderr=True, tail=tail or "all"
         )
 
         log_stream = cast(Generator[bytes], log_stream)
 
         thread = Thread(
-            target=lambda: _stream_logs(
-                log_queue=log_queue,
-                log_stream=log_stream
-            ), daemon=True
+            target=lambda: _stream_logs(log_queue=log_queue, log_stream=log_stream),
+            daemon=True,
         )
         thread.start()
 
@@ -163,10 +163,7 @@ async def docker_logs_stream(
         raise ContainerNotFound()
 
 
-def _stream_logs( 
-    log_queue: Queue[str],
-    log_stream: Generator[bytes]
-):
+def _stream_logs(log_queue: Queue[str], log_stream: Generator[bytes]):
     """Thread function to stream logs and put them in queue"""
     try:
         for log_line in log_stream:
@@ -188,42 +185,51 @@ class FormattedImage(BaseModel):
     id: str
     short_id: str
     tags: List[str]
-    hub_url: str
+    # hub_url: str
 
 
-def _format_image(image: Image) -> FormattedImage:
-    arr = image.tags[0].split("/")
-    x, y, z = (image.tags[0].split("/")) + [None] * (3 - len(arr))
-    url = ""
+async def _format_image(image: Image) -> FormattedImage:
+    # arr = []
+    # if len(image.tags):
+    #     arr = image.tags[0].split("/")
+    # else:
+    #     arr = image.attrs["RepoDigests"][0].split("@")[0].split("/")
+    # x, y, z = arr + [None] * (3 - len(arr))
+    # url = ""
 
-    if x and y and z:
-        z = z.split(":")[0]
-        if x == "quay.io":
-            url = f"https://quay.io/repository/{y}/{z}"
-        else:
-            url = f"{x}/{y}/{z}"
-    elif x and y:
-        y = y.split(":")[0]
-        url = f"https://hub.docker.com/r/{x}/{y}"
-    elif x:
-        x = x.split(":")[0]
-        url = f"https://hub.docker.com/_/{x}"
+    # if x and y and z:
+    #     z = z.split(":")[0]
+    #     if x == "quay.io":
+    #         url = f"https://quay.io/repository/{y}/{z}"
+    #     else:
+    #         url = f"{x}/{y}/{z}"
+    # elif x and y:
+    #     y = y.split(":")[0]
+    #     url = f"https://hub.docker.com/r/{x}/{y}"
+    # elif x:
+    #     x = x.split(":")[0]
+    #     url = f"https://hub.docker.com/_/{x}"
+
+    # async with aiohttp.ClientSession() as session:
+    #     async with session.get(url) as response:
+    #         if response.status != 200:
+    #             url = ""
 
     return FormattedImage(
         id=image.id or image.short_id,
         short_id=image.short_id,
         tags=image.tags,
-        hub_url=url,
+        # hub_url=url,
     )
 
 
 async def get_images():
-    return [_format_image(image) for image in await to_thread(client.images.list)]
+    return [await _format_image(image) for image in await to_thread(client.images.list)]
 
 
 async def get_image(id: str):
     try:
-        return _format_image(await to_thread(client.images.get, id))
+        return await _format_image(await to_thread(client.images.get, id))
 
     except ImageNotFound:
         raise _ImageNotFound()
@@ -250,6 +256,7 @@ class ResourceMetrics(BaseModel):
 class ResourceUsages(BaseModel):
     memory: ResourceMetrics
     cpu: ResourceMetrics
+
 
 class ResourceUsage(BaseModel):
     cpu: float
@@ -376,6 +383,7 @@ async def get_resource_usages() -> ResourceUsages:
             total=float(cpu_count),
         ),
     )
+
 
 async def get_resource_usage(id: str):
     container = await _get_container(id)
