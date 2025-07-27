@@ -1,5 +1,6 @@
 FROM oven/bun
 
+ENV DASHBOARD_PORT=8080
 EXPOSE 8080
 
 WORKDIR /front-end
@@ -9,4 +10,4 @@ RUN bun add .
 
 COPY . /front-end
 
-CMD ["bun", "start"]
+CMD ["bun", "start", "--port", "${DASHBOARD_PORT}"]
