@@ -24,7 +24,7 @@ export default function () {
                 }
             });
         } catch (err) {
-            if (err instanceof AxiosError && err.status == 401)
+            if (err instanceof AxiosError && (err.status == 401 || err.status == 404))
                 return navigator("/login");
 
             console.error(err);
