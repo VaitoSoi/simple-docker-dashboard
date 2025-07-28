@@ -70,7 +70,7 @@ export default function () {
 
     async function signup() {
         try {
-            await api.post('/user', {
+            await api.post('/user/', {
                 username,
                 password
             });

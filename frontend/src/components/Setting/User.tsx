@@ -23,7 +23,7 @@ export default function () {
 
     async function updateUser() {
         try {
-            await api.put("/user", {
+            await api.put("/user/", {
                 username: newUsername,
                 password: newPassword
             }, {

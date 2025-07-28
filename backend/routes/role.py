@@ -28,7 +28,7 @@ router = APIRouter(prefix="/role", tags=["role"])
 
 
 @router.get(
-    path="", dependencies=[Depends(token_has_permission([Permission.SeeRoles]))]
+    path="/", dependencies=[Depends(token_has_permission([Permission.SeeRoles]))]
 )
 def get_role(id: str | None = None, all: bool | None = None):
     if all:
@@ -48,7 +48,7 @@ def get_permission():
     }
 
 @router.post(
-    path="",
+    path="/",
     dependencies=[Depends(token_has_permission([Permission.CreateRole]))],
 )
 def create_role(role: APIRole):
@@ -83,7 +83,7 @@ def grant_role(
 
 
 @router.put(
-    path="",
+    path="/",
     dependencies=[Depends(token_has_permission([Permission.UpdateRole]))],
 )
 def update_role_api(
@@ -109,7 +109,7 @@ def update_role_api(
 
 
 @router.delete(
-    path="",
+    path="/",
     dependencies=[Depends(token_has_permission([Permission.DeleteRole]))],
 )
 def delete_role_api(role: Annotated[DBRole, Depends(get_role_deps(True))]):
