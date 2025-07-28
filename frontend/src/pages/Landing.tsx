@@ -3,6 +3,9 @@ import { useNavigate } from "react-router";
 import { useEffect, type ComponentProps } from "react";
 import { GitHub } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
+import { AxiosError } from "axios";
+import { error } from "@/hooks/toasts";
+import api from "@/lib/api";
 
 export default function () {
     const navigator = useNavigate();
@@ -11,7 +14,24 @@ export default function () {
 
     useEffect(() => {
         if (!token) navigator("/login");
+        checkMe();
     }, []);
+    async function checkMe() {
+        try {
+            await api.get('/user/me', {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+        } catch (err) {
+            if (err instanceof AxiosError && err.status == 401)
+                return navigator("/login");
+
+            console.error(err);
+            if (err instanceof Error)
+                error(err.message);
+        }
+    }
 
     return <>{
         !token
