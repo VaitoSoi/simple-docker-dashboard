@@ -75,7 +75,7 @@ async def login(
     return {"access_token": token, "token_type": "bearer", "user": user.model_dump()}
 
 
-@router.get("/", dependencies=[Depends(token_has_permission([Permission.SeeUsers]))])
+@router.get("", dependencies=[Depends(token_has_permission([Permission.SeeUsers]))])
 async def get_user_api(
     id: str | None = None, username: str | None = None,
     all: bool | None = None
@@ -118,7 +118,7 @@ async def has_permission(
     return JSONResponse({ "message": "ok" })
 
 
-@router.post("/")
+@router.post("")
 async def create_user(user: APIUser):
     try:
         _new_user = new_user(user)
@@ -145,7 +145,7 @@ async def create_user(user: APIUser):
         )
 
 
-@router.put(path="/")
+@router.put(path="")
 def update_user_api(
     user: Annotated[User, Depends(get_user_from_token)],
     new_user: APIUpdateUser,
@@ -183,7 +183,7 @@ def update_user_api(
         )
 
 
-@router.delete(path="/")
+@router.delete(path="")
 def delete_user_api(
     user: Annotated[User, Depends(get_user_from_token)],
     target: Annotated[User | None, Depends(get_user_deps(False))],
