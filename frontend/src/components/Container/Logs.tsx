@@ -12,6 +12,10 @@ import { Switch } from "@/components/ui/switch";
 export default function ({ id, reload }: { id: string, reload: boolean }) {
     const token = localStorage.getItem("token");
 
+    const baseUrl = api.defaults.baseURL
+        .replace("https", "wss")
+        .replace("http", "ws");
+
     const dumpItem = useRef(null);
     const chunks = useRef<string[]>([]);
     const [url, setUrl] = useState<string>("");
@@ -78,7 +82,7 @@ export default function ({ id, reload }: { id: string, reload: boolean }) {
     useEffect(() => {
         if (!allowToSee) return;
         setUrl(
-            "http://localhost:8000/docker/logs" +
+            `${baseUrl}/docker/logs` +
             `?id=${id}` +
             `&token=${token}`
         );
@@ -93,7 +97,7 @@ export default function ({ id, reload }: { id: string, reload: boolean }) {
         setLogs([]);
         setTimeout(() =>
             setUrl(
-                "http://localhost:8000/docker/logs" +
+                `${baseUrl}/docker/logs` +
                 `?id=${id}` +
                 `&token=${token}`
             )
