@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Annotated, Any, Dict
+from typing import Annotated, Any, Dict, Union
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -9,6 +9,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from lib.db import (
     APIUpdateUser,
     APIUser,
+    DBUser,
     User,
     delete_user,
     get_user,
@@ -28,6 +29,7 @@ from lib.errors import (
     UserNotFound,
     WrongPassword,
 )
+from lib.response import HTTP_EXECEPTION_MESSAGE, MESSAGE_OK
 from lib.security import (
     check_user_has_permission,
     get_user_from_token,
@@ -38,12 +40,34 @@ from lib.security import (
 router = APIRouter(prefix="/user", tags=["user"])
 
 
-@router.get(path="/me")
+@router.get(
+    path="/me", description="Get current user", responses={200: {"model": User}}
+)
 def get_me(user: Annotated[User, Depends(get_user_from_token)]):
     return user
 
 
-@router.post("/login")
+@router.post(
+    "/login",
+    description="Login and get token",
+    responses={
+        200: {
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "access_token": "string",
+                            "token_type": {"type": "string", "default": "bearer"},
+                            "user": DBUser.model_json_schema(),
+                        },
+                    }
+                }
+            }
+        },
+        401: HTTP_EXECEPTION_MESSAGE("wrong password D:"),
+    },
+)
 async def login(
     user_form: Annotated[OAuth2PasswordRequestForm, Depends()],
     expire_time: timedelta = timedelta(days=7),
@@ -75,14 +99,21 @@ async def login(
     return {"access_token": token, "token_type": "bearer", "user": user.model_dump()}
 
 
-@router.get("/", dependencies=[Depends(token_has_permission([Permission.SeeUsers]))])
+@router.get(
+    "/",
+    description="Get specific user by ID or Username or get all users",
+    dependencies=[Depends(token_has_permission([Permission.SeeUsers]))],
+    responses={
+        400: HTTP_EXECEPTION_MESSAGE("missing id or username"),
+        200: {"model": Union[list[User], User]},
+    },
+)
 async def get_user_api(
-    id: str | None = None, username: str | None = None,
-    all: bool | None = None
+    id: str | None = None, username: str | None = None, all: bool | None = None
 ):
     if all:
         return get_users()
-    
+
     else:
         try:
             return get_user(id, username)
@@ -102,10 +133,13 @@ async def get_user_api(
 
 @router.get(
     "/has_permissions",
+    description="Check if current has require permssion",
+    responses={
+        200: MESSAGE_OK(),
+    },
 )
 async def has_permission(
-    user: Annotated[User, Depends(get_user_from_token)], 
-    permissions: str
+    user: Annotated[User, Depends(get_user_from_token)], permissions: str
 ):
     check_user_has_permission(
         user,
@@ -115,10 +149,30 @@ async def has_permission(
             if int(permission) in Permission
         ],
     )
-    return JSONResponse({ "message": "ok" })
+    return JSONResponse({"message": "ok"})
 
 
-@router.post("/")
+@router.post(
+    "/",
+    description="Create new user",
+    responses={
+        201: {
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {"type": "string", "default": "created"},
+                            "user": DBUser.model_json_schema(),
+                        },
+                    }
+                }
+            }
+        },
+        409: HTTP_EXECEPTION_MESSAGE("username already existed"),
+        400: HTTP_EXECEPTION_MESSAGE(["invalid username", "invalid password"]),
+    },
+)
 async def create_user(user: APIUser):
     try:
         _new_user = new_user(user)
@@ -136,16 +190,38 @@ async def create_user(user: APIUser):
 
     except InvalidUsername:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail={"message": "invalid username"}
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"message": "invalid username"},
         )
 
     except InvalidPassword:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail={"message": "invalid password"}
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"message": "invalid password"},
         )
 
 
-@router.put(path="/")
+@router.put(
+    "/",
+    description="Update current user or a specific user by ID",
+    responses={
+        200: {
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "message": {"type": "string", "default": "updated"},
+                            "user": DBUser.model_json_schema(),
+                        },
+                    }
+                }
+            }
+        },
+        409: HTTP_EXECEPTION_MESSAGE("username already existed"),
+        400: HTTP_EXECEPTION_MESSAGE(["invalid username", "invalid password"]),
+    },
+)
 def update_user_api(
     user: Annotated[User, Depends(get_user_from_token)],
     new_user: APIUpdateUser,
@@ -174,16 +250,22 @@ def update_user_api(
 
     except InvalidUsername:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail={"message": "invalid username"}
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"message": "invalid username"},
         )
 
     except InvalidPassword:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail={"message": "invalid password"}
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"message": "invalid password"},
         )
 
 
-@router.delete(path="/")
+@router.delete(
+    path="/",
+    description="Delete current user or a specific user by ID",
+    responses={204: {}},
+)
 def delete_user_api(
     user: Annotated[User, Depends(get_user_from_token)],
     target: Annotated[User | None, Depends(get_user_deps(False))],

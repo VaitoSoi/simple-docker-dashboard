@@ -1,10 +1,11 @@
-# bun-react-tailwind-shadcn-template
+# Simple Docker Dashboard Front-end
 
-To install dependencies:
+## I. Introduction:
 
-```bash
-bun install
-```
+This a simple React app built with TailwindCSS and ShadCN.
+
+## II. How to run this app
+
 
 To start a development server:
 
@@ -17,5 +18,3 @@ To run for production:
 ```bash
 bun start
 ```
-
-This project was created using `bun init` in bun v1.2.18. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.

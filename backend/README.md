@@ -1,79 +1,144 @@
-# Simple Docker Dashboard API
+# Simple Docker Dashboard Backend
 
-## API Endpoints
+## I. Introduction
 
-### Docker Router (`/docker`)
+This is a simple FastAPI app, use JWT for token creation, SQLModel for interacting with database and SQLite (default) as database.
 
-| Method | Endpoint | Permission | Description |
-|--------|----------|------------|-------------|
-| GET | `/docker/containers` | `Permission.SeeContainers` | Get list of containers (show_all parameter) |
-| GET | `/docker/container` | `Permission.SeeContainers` | Get specific container by id or name |
-| POST | `/docker/start` | `Permission.StartContainer` | Start a container by id |
-| POST | `/docker/stop` | `Permission.StopContainer` | Stop a container by id |
-| GET | `/docker/images` | `Permission.SeeImages` | Get list of images |
-| GET | `/docker/image` | `Permission.SeeImages` | Get specific image by id |
+## II. Endpoints
 
-### User Router (`/user`)
+### 1. Docker
 
-| Method | Endpoint | Permission | Description |
-|--------|----------|------------|-------------|
-| GET | `/user/me` | *Authenticated User* | Get current user information |
-| POST | `/user/login` | *Public* | User login (OAuth2 password flow) |
-| GET | `/user/gets` | `Permission.SeeUser` | Get list of all users |
-| GET | `/user/get` | `Permission.SeeUser` | Get specific user by id or username |
-| POST | `/user/create` | *Public* | Create new user |
-| PUT | `/user/update` | *Own account or `Permission.UpdateUser`* | Update user information |
-| DELETE | `/user/delete` | *Own account or `Permission.DeleteUser`* | Delete user |
+#### a. Containers
 
-### Role Router (`/role`)
+|Method|Path|Require permission|Description|
+|------|----|------------------|-----------|
+|`GET`|`/docker/containers`|`SeeContainers`|Get all containers|
+|`GET`|`/docker/container`|`SeeContainers`|Get specific container by ID, Short ID or Name|
+|`GET`|`/docker/inspect`|`SeeContainers`|Get specific container attributes by ID, Short ID or Name|
+|`GET`|`/docker/top`|`SeeContainers`|Get specific container running process by ID, Short ID or Name|
+|`POST`|`/docker/start`|`StartContainers`|Start specific container by ID, Short ID or Name|
+|`POST`|`/docker/stop`|`StopContainers`|Stop specific container by ID, Short ID or Name|
+|`POST`|`/docker/rename`|`RenameContainers`|Rename specific container by ID, Short ID or Name|
+|`POST`|`/docker/restart`|`RestartContainers`|Restart specific container by ID, Short ID or Name|
+|`POST`|`/docker/kill`|`KillContainers`|Kill specific container by ID, Short ID or Name|
+|`DELETE`|`/docker/container`|`SeeContainers`|Remove specific container by ID, Short ID or Name|
+|Websocket|`/docker/logs`|`SeeLogs`|Get specific container logs stream by ID, Short ID or Name|
 
-| Method | Endpoint | Permission | Description |
-|--------|----------|------------|-------------|
-| GET | `/role/gets` | `Permission.SeeRole` | Get list of all roles |
-| GET | `/role/get` | `Permission.SeeRole` | Get specific role |
-| POST | `/role/create` | `Permission.CreateRole` | Create new role |
-| POST | `/role/grant` | `Permission.GrantRoles` | Grant roles to user |
-| PUT | `/role/update` | `Permission.UpdateRole` | Update role |
-| DELETE | `/role/delete` | `Permission.DeleteRole` | Delete role |
+#### b. Images
 
-## Permission Hierarchy
+|Method|Path|Require permission|Description|
+|------|----|------------------|-----------|
+|`GET`|`/docker/images`|`SeeImages`|Get all images|
+|`GET`|`/docker/image`|`SeeImages`|Get specific image by ID or Short ID|
+|`DELETE`|`/docker/image`|`DeleteImages`|Remove specific image by ID or Short ID|
 
-```python
-class Permission(Enum):
-    Administator = 0
+##### c. Mics
 
-    Containers = 10
-    SeeContainers = 11
-    StopContainer = 12
-    StartContainer = 13
-    SeeLogs = 24
-    Resource = 25
+|Method|Path|Require permission|Description|
+|------|----|------------------|-----------|
+|`GET`|`/docker/resource`|`Resource`|Get resource usage by Docker and system|
 
-    Images = 20
-    SeeImages = 21
-    DeleteImage = 22
+### 2. Users
 
-    Deploy = 30
-    SeeDeploy = 31
-    ConfigDeploy = 32
-    
-    Roles = 40
-    SeeRole = 41
-    CreateRole = 42
-    GrantRoles = 43
-    UpdateRole = 44
-    DeleteRole = 45
+|Method|Path|Require permission|Description|
+|------|----|------------------|-----------|
+|`GET`|`/user/me`|/|Get current user|
+|`POST`|`/user/login`|/|Login and get token|
+|`GET`|`/user/`|`SeeUsers`|Get specific user by ID or Username or get all users|
+|`GET`|`/user/has_permission`|/|Check if current has require permssion|
+|`POST`|`/user/`|/|Create new user|
+|`PUT`|`/user/`|/|Update current user or a specific user by ID|
+|`DELETE`|`/user/`|/|Delete current user or a specific user by ID|
 
-    Users = 50
-    SeeUser = 51
-    UpdateUser = 52
-    DeleteUser = 53
+### 3. Roles
+
+|Method|Path|Require permission|Description|
+|------|----|------------------|-----------|
+|`GET`|`/role/`|`SeeRoles`|Get all role or a specific role by ID|
+|`GET`|`/role/permissions`|`SeePermission`|Get all permissions|
+|`POST`|`/role/`|`CreateROle`|Create new role|
+|`PUT`|`/role/grant`|`GrantRoles`|Grant a role to user|
+|`PUT`|`/role/`|`UpdateRole`|Update role|
+|`DELETE`|`/role`|`DeleteRole`|Delete role|
+
+## III. Permissions
+
+### 1. List of permissions
+
+|Name|Value|
+|-|-|
+Administrator | 0
+**Containers group**
+Containers | 10
+SeeContainers | 11
+RenameContainer | 12
+StartContainer | 13
+RestartContainer | 14
+KillContainer | 15
+StopContainer | 16
+RemoveContainer | 17
+SeeLogs | 18
+Resource | 19
+**Image group**
+Images | 20
+SeeImages | 21
+DeleteImage | 22
+**Role group**
+Roles | 30
+SeeRoles | 31
+CreateRole | 32
+GrantRoles | 33
+UpdateRole | 34
+DeleteRole | 35
+SeePermissions | 36
+**User group**
+Users | 40
+SeeUsers | 41
+UpdateUsers | 42
+DeleteUsers | 43
+
+### 2. How permission system work ?
+
+If users have a top permission, they will have all permission in that group.
+
+Example: If user have permission `Containers`, they will have all permission in `Container group`
+
+## IV. Environments
+
+|Name|Default value|Accept value|Note|
+|----|-------------|------------|----|
+|`USE_HASH`|`true`|`true` or `false`|Please keep this value unchanged if you do not want to mess up the hash function. If you want to change this value, you must delete the database.|
+|`SIGNATURE`|Random string|Any string|Set this value if you do not want to create a new token each time you restart.|
+|`DB_URL`|`sqlite:///database.db`|A SQL DB connection string|Any kind of SQL DB that SQLAlchemy supports|
+|`PORT`|`8000`|A number from 0-65535|Only used when you run this app with uvicorn|
+|`HOST`|`127.0.0.1`|An IP|Only used when you run this app with uvicorn|
+
+## V. How to run
+
+### 1. With FastAPI CLI
+
+To start a development server:
+
+```bash
+fastapi dev main.py
 ```
 
-## Default Permissions
+To run for production:
 
-New users are granted these permissions by default:
-- `Permission.SeeContainers`
-- `Permission.SeeLogs`
-- `Permission.SeeImages`
+```bash
+fastapi run main.py
+```
 
+### 2. With uvicorn
+
+To start a development server:
+
+```bash
+uvicorn main:app --reload
+```
+
+To run for production:
+
+```bash
+uvicorn main:app
+```
