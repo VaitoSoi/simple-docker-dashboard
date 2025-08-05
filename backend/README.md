@@ -99,9 +99,9 @@ DeleteUsers | 43
 
 ### 2. How permission system work ?
 
-If users have a top permission, they will have all permission in that group.
+If users have a top permission, they will have all permissions in that group.
 
-Example: If user have permission `Containers`, they will have all permission in `Container group`
+Example: If user have permission `Containers`, they will have all permissions in `Container group`
 
 ## IV. Environments
 
