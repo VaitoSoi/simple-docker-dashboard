@@ -68,7 +68,7 @@ This is a simple FastAPI app, use JWT for token creation, SQLModel for interacti
 |Name|Value|
 |-|-|
 Administrator | 0
-**Containers group**
+**Containers group**|-
 Containers | 10
 SeeContainers | 11
 RenameContainer | 12
@@ -79,11 +79,11 @@ StopContainer | 16
 RemoveContainer | 17
 SeeLogs | 18
 Resource | 19
-**Image group**
+**Image group**|-
 Images | 20
 SeeImages | 21
 DeleteImage | 22
-**Role group**
+**Role group**|-
 Roles | 30
 SeeRoles | 31
 CreateRole | 32
@@ -91,7 +91,7 @@ GrantRoles | 33
 UpdateRole | 34
 DeleteRole | 35
 SeePermissions | 36
-**User group**
+**User group**|-
 Users | 40
 SeeUsers | 41
 UpdateUsers | 42
