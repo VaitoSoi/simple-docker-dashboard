@@ -55,7 +55,7 @@ def create_role(role: APIRole):
     try:
         new_role(role)
 
-        return "ok"
+        return JSONResponse({"message": "ok"})
 
     except RoleExisted:
         raise HTTPException(
