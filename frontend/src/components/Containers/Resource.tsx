@@ -67,7 +67,7 @@ export default function () {
                         <Cpu strokeWidth={1.5} className="h-12 w-12" />
                         <p className="ml-2">{
                             cpu
-                                ? `${cpu.docker.toFixed(2)} / ${cpu.system.toFixed(2)} / ${cpu.total * 100} %`
+                                ? `${cpu.docker.toFixed(2)} / ${cpu.system.toFixed(2)} / 100 %`
                                 : <SpinningWhale />
                         }</p>
                     </div>
