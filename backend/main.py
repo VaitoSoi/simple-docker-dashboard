@@ -15,6 +15,11 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
+    title="Simple Docker Dsahboard Backend",
+    license_info={"name": "MIT"},
+    version="1.0.0",
+    summary="A simple backend for Simple Docker Dashboard app. Use FastAPI as framework, SQLite (default) as database, SQLModel for interaction with Database, "
+    + "JWT for token, docker-py for interacting with Docker daemon.",
     lifespan=lifespan,
     redirect_slashes=False,
     responses={
