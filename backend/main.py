@@ -17,8 +17,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     lifespan=lifespan,
     redirect_slashes=False,
-    docs_url="/api/docs",
-    openapi_url="/api/openapi.json",
     responses={
         **MISSING_PERMISSION(),
         **USER_NOT_FOUND(),
