@@ -7,7 +7,7 @@ import {
     SheetTitle,
     SheetTrigger,
 } from "@/components/ui/sheet";
-import { Container, Home, LogOut, PanelLeftOpen, Scroll, Settings } from "lucide-react";
+import { Container, Database, Home, LogOut, PanelLeftOpen, Scroll, Settings } from "lucide-react";
 import type { ComponentProps } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "../ui/button";
@@ -49,21 +49,28 @@ export default function () {
                         <Scroll className="size-8" />
                         <p>Images</p>
                     </SheetItem>
+                    <SheetItem onClick={() => navigatorWithTransition("/volumes")}>
+                        <Database className="size-8" />
+                        <p>Volumes</p>
+                    </SheetItem>
                     <SheetItem onClick={() => navigatorWithTransition("/settings?tab=user")}>
                         <Settings className="size-8" />
                         <p>Settings</p>
                     </SheetItem>
                 </div>
                 <SheetFooter className="flex flex-row items-center">
+                    <a
+                        className="w-1/2 h-20"
+                        href="https://github.com/vaitosoi/simple-docker-dashboard/">
+                        <SheetItem
+                            className="p-1 justify-center gap-2 flex flex-col items-center"
+                        >
+                            <GitHub className="size-10" />
+                            <p>GitHub</p>
+                        </SheetItem>
+                    </a>
                     <SheetItem
-                        className="w-1/2 h-20 gap-1 p-0 justify-center flex flex-col items-center"
-                        onClick={() => window.location.href = "https://github.com/vaitosoi/simple-docker-dashboard/"}
-                    >
-                        <GitHub className="size-10" />
-                        <p>GitHub</p>
-                    </SheetItem>
-                    <SheetItem
-                        className="w-1/2 h-20 gap-1 p-0 justify-center flex flex-col items-center"
+                        className="w-1/2 h-20 gap-1 p-1 justify-center flex flex-col items-center"
                         onClick={() => {
                             localStorage.setItem("token", "");
                             localStorage.setItem("username", "");
