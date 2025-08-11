@@ -2,6 +2,7 @@ from asyncio import to_thread
 from queue import Empty
 from typing import Annotated, Any, Awaitable, Callable, Union, cast
 
+from docker.errors import APIError
 from fastapi import (
     APIRouter,
     Depends,
@@ -12,33 +13,51 @@ from fastapi import (
     WebSocketException,
     status,
 )
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.websockets import WebSocketState
 
+from lib.db import User
 from lib.docker import (
+    ContainerPruneResponse,
     FormattedContainer,
     FormattedImage,
+    FormattedVolume,
+    ImagePruneResponse,
     ResourceUsage,
     ResourceUsages,
-    delete_image,
+    VolumeEntry,
+    VolumePruneResponse,
+    docker_exec_stream,
     docker_logs_stream,
     get_container,
+    get_container_raw,
     get_containers,
+    get_containers_raw,
     get_image,
     get_images,
     get_resource_usage,
     get_resource_usages,
+    get_volume,
+    get_volumes,
     inspect_container,
     kill_container,
+    prune_container,
+    prune_images,
+    prune_volumes,
     remove_container,
+    remove_image,
+    remove_volume,
     rename_container,
     restart_container,
     start_container,
     stop_container,
     top_container,
+    volume_cat,
+    volume_download,
+    volume_ls,
 )
 from lib.enums import Permission
-from lib.errors import ContainerNotFound, ImageNotFound
+from lib.errors import ContainerNotFound, ImageNotFound, InvalidPath, VolumeNotFound
 from lib.response import HTTP_EXECEPTION_MESSAGE, MESSAGE_OK
 from lib.security import (
     check_user_has_permission,
@@ -46,7 +65,27 @@ from lib.security import (
     token_has_permission,
 )
 
-router = APIRouter(prefix="/docker", tags=["docker"])
+API_ERROR = {400: HTTP_EXECEPTION_MESSAGE("<any api error message>")}
+
+router = APIRouter(prefix="/docker", tags=["docker"], responses={**API_ERROR})
+
+
+async def raise_if_api_error(
+    func: Callable[..., Awaitable[Any]], *args: ..., **kwargs: ...
+):
+    try:
+        return await func(*args, **kwargs)
+
+    except APIError as api_error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "message": api_error.response.reason
+                if api_error.response
+                else api_error.explanation,
+            },
+        )
+
 
 """
 CONTAINER
@@ -63,7 +102,7 @@ async def container_raise_if_not_found(
     func: Callable[..., Awaitable[Any]], *args: ..., **kwargs: ...
 ):
     try:
-        return await func(*args, **kwargs)
+        return await raise_if_api_error(func, *args, **kwargs)
 
     except ContainerNotFound:
         raise HTTPException(
@@ -81,8 +120,20 @@ async def container_raise_if_not_found(
     dependencies=[Depends(token_has_permission([Permission.SeeContainers]))],
     responses={200: {"model": list[FormattedContainer]}},
 )
-async def get_containers_api(show_all: bool = False):
-    return await get_containers(show_all)
+async def get_containers_api(
+    user: Annotated[User, Depends(get_user_from_token)],
+    show_all: bool = False,
+    raw: bool = False,
+):
+    if raw:
+        check_user_has_permission(user, [Permission.SeeContainerRaw])
+        return JSONResponse(
+            [
+                container.attrs
+                for container in await raise_if_api_error(get_containers_raw)
+            ]
+        )
+    return await raise_if_api_error(get_containers, show_all)
 
 
 @router.get(
@@ -91,8 +142,14 @@ async def get_containers_api(show_all: bool = False):
     dependencies=[Depends(token_has_permission([Permission.SeeContainers]))],
     responses={200: {"model": FormattedContainer}, **CONTAINER_NOT_FOUND},
 )
-async def get_container_api(id: str):
-    return await container_raise_if_not_found(get_container, id=id)
+async def get_container_api(
+    user: Annotated[User, Depends(get_user_from_token)], id: str, raw: bool = False
+):
+    if raw:
+        check_user_has_permission(user, [Permission.SeeContainerRaw])
+    return await container_raise_if_not_found(
+        get_container if not raw else get_container_raw, id=id
+    )
 
 
 @router.get(
@@ -187,6 +244,16 @@ async def remove_container_api(id: str):
     return JSONResponse({"message": "ok"})
 
 
+@router.delete(
+    "/container/prune",
+    description="Prune container",
+    dependencies=[Depends(token_has_permission([Permission.PruneContainer]))],
+    responses={200: {"model": ContainerPruneResponse}},
+)
+async def prune_container_api():
+    return await raise_if_api_error(prune_container)
+
+
 @router.websocket("/logs")
 async def get_container_logs_api(
     ws: WebSocket,
@@ -196,39 +263,89 @@ async def get_container_logs_api(
 ):
     check_user_has_permission(get_user_from_token(token), [Permission.SeeLogs])
 
+    log_queue, log_stream = await container_raise_if_not_found(
+        docker_logs_stream, id, tail=tail
+    )
+
+    await ws.accept()
     try:
-        log_queue, log_stream = await docker_logs_stream(id, tail=tail)
+        while ws.application_state == WebSocketState.CONNECTING:
+            ...
 
-        await ws.accept()
-        try:
-            while ws.application_state == WebSocketState.CONNECTING:
-                ...
+        while ws.application_state == WebSocketState.CONNECTED:
+            try:
+                log = await to_thread(log_queue.get, timeout=1)
+            except Empty:
+                await ws.send_text("SimpleDockerDashboard_Ping")
+                continue
 
-            while ws.application_state == WebSocketState.CONNECTED:
-                try:
-                    log = await to_thread(log_queue.get, timeout=1)
-                except Empty:
-                    await ws.send_text("SimpleDockerDashboard_Ping")
-                    continue
+            if log:
+                if log == "SimpleDockerDashboard_EOL":
+                    log_stream.close()
+                    break
 
-                if log:
-                    if log == "SimpleDockerDashboard_EOL":
-                        log_stream.close()
-                        break
+                await ws.send_text(log)
 
-                    await ws.send_text(log)
+        log_stream.close()
+        await ws.close()
 
-            log_stream.close()
-            await ws.close()
+    except (WebSocketDisconnect, WebSocketException):
+        log_stream.close()
 
-        except (WebSocketDisconnect, WebSocketException):
-            log_stream.close()
 
-    except ContainerNotFound:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"message": "container not found", "id": id},
-        )
+@router.websocket("/exec")
+async def container_exec_api(
+    ws: WebSocket,
+    id: Annotated[str, Query()],
+    token: Annotated[str, Query()],
+    cmd: Annotated[str | None, Query()] = None,
+):
+    check_user_has_permission(get_user_from_token(token), [Permission.SeeLogs])
+
+    log_queue, log_stream = await container_raise_if_not_found(
+        docker_exec_stream, id, cmd
+    )
+
+    await ws.accept()
+    try:
+        while ws.application_state == WebSocketState.CONNECTING:
+            ...
+
+        while ws.application_state == WebSocketState.CONNECTED:
+            try:
+                log = await to_thread(log_queue.get, timeout=1)
+            except Empty:
+                await ws.send_text("SimpleDockerDashboard_Ping")
+                continue
+
+            if log:
+                if log == "SimpleDockerDashboard_EOL":
+                    log_stream.close()
+                    break
+
+                await ws.send_text(log)
+
+        log_stream.close()
+        await ws.close()
+
+    except (WebSocketDisconnect, WebSocketException):
+        log_stream.close()
+
+
+@router.get(
+    "/resource",
+    description="Get resource usage by Docker and system",
+    dependencies=[Depends(token_has_permission([Permission.Resource]))],
+    responses={
+        200: {"model": Union[ResourceUsages, ResourceUsage]},
+        **CONTAINER_NOT_FOUND,
+    },
+)
+async def get_resource(id: str | None = None):
+    if not id:
+        return await get_resource_usages()
+    else:
+        return await container_raise_if_not_found(get_resource_usage, id=id)
 
 
 """
@@ -247,7 +364,7 @@ async def image_raise_if_not_found(
     func: Callable[..., Awaitable[Any]], *args: ..., **kwargs: ...
 ):
     try:
-        return await func(*args, **kwargs)
+        return await raise_if_api_error(func, *args, **kwargs)
 
     except ImageNotFound:
         raise HTTPException(
@@ -266,7 +383,7 @@ async def image_raise_if_not_found(
     responses={200: {"model": list[FormattedImage]}},
 )
 async def get_images_api():
-    return await get_images()
+    return await raise_if_api_error(get_images)
 
 
 @router.get(
@@ -286,18 +403,138 @@ async def get_image_api(id: str):
     responses={200: MESSAGE_OK(), **IMAGE_NOT_FOUND},
 )
 async def delete_image_api(id: str):
-    await image_raise_if_not_found(delete_image, id=id)
+    await image_raise_if_not_found(remove_image, id=id)
     return JSONResponse({"message": "ok"})
 
 
-@router.get(
-    "/resource",
-    description="Get resource usage by Docker and system",
-    dependencies=[Depends(token_has_permission([Permission.Resource]))],
-    responses={200: {"model": Union[ResourceUsages, ResourceUsage]}, **CONTAINER_NOT_FOUND},
+@router.delete(
+    "/image/prune",
+    description="Prune image",
+    dependencies=[Depends(token_has_permission([Permission.PruneImage]))],
+    responses={200: {"model": ImagePruneResponse}},
 )
-async def get_resource(id: str | None = None):
-    if not id:
-        return await get_resource_usages()
-    else:
-        return await container_raise_if_not_found(get_resource_usage, id=id)
+async def prune_image_api(dangling: bool = True):
+    return await raise_if_api_error(prune_images, dangling)
+
+
+"""
+VOLUMES
+"""
+
+VOLUME_NOT_FOUND = {
+    404: HTTP_EXECEPTION_MESSAGE(
+        "volume not found", ({"id": {"type": "string"}}, {"id": "string"})
+    )
+}
+
+INVALID_PATH = {
+    400: HTTP_EXECEPTION_MESSAGE(
+        "invalid path", ({"path": {"type": "string"}}, {"path": "string"})
+    )
+}
+
+
+async def volume_raise_if_not_found(
+    func: Callable[..., Awaitable[Any]], *args: ..., **kwargs: ...
+):
+    try:
+        return await raise_if_api_error(func, *args, **kwargs)
+
+    except VolumeNotFound:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "message": "volume not found",
+                **({"id": kwargs["id"]} if "id" in kwargs else {}),
+            },
+        )
+
+
+async def volume_raise_if_invalid(
+    func: Callable[..., Awaitable[Any]], *args: ..., **kwargs: ...
+):
+    try:
+        return await volume_raise_if_not_found(func, *args, **kwargs)
+
+    except InvalidPath:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "message": "invalid path",
+                **({"path": kwargs["path"]} if "path" in kwargs else {}),
+            },
+        )
+
+
+@router.get(
+    "/volumes",
+    description="Get all volume",
+    dependencies=[Depends(token_has_permission([Permission.SeeVolumes]))],
+    responses={200: {"model": list[FormattedVolume]}},
+)
+async def get_volumes_api():
+    return await get_volumes()
+
+
+@router.get(
+    "/volume",
+    description="Get specific volume by ID, Short ID or Name",
+    dependencies=[Depends(token_has_permission([Permission.SeeVolumes]))],
+    responses={200: {"model": FormattedVolume}, **VOLUME_NOT_FOUND},
+)
+async def get_volume_api(id: str):
+    return await volume_raise_if_not_found(get_volume, id=id)
+
+
+@router.get(
+    "/ls",
+    description="List all entries in volume",
+    dependencies=[Depends(token_has_permission([Permission.LsVolume]))],
+    responses={200: {"model": list[VolumeEntry]}, **VOLUME_NOT_FOUND, **INVALID_PATH},
+)
+async def ls_volume_api(id: str, path: str = ""):
+    return await volume_raise_if_invalid(volume_ls, id=id, path=path)
+
+
+@router.get(
+    "/cat",
+    description="Cat an entry in volume",
+    dependencies=[Depends(token_has_permission([Permission.CatVolume]))],
+    responses={200: {"model": list[VolumeEntry]}, **VOLUME_NOT_FOUND, **INVALID_PATH},
+)
+async def cat_volume_api(id: str, path: str):
+    return await volume_raise_if_invalid(volume_cat, id=id, path=path)
+
+
+@router.get(
+    "/download",
+    description="Download an entry in volume",
+    dependencies=[Depends(token_has_permission([Permission.CatVolume]))],
+    responses={200: {}, **VOLUME_NOT_FOUND, **INVALID_PATH},
+)
+async def download_volume_api(id: str, path: str):
+    return Response(
+        content=await volume_raise_if_invalid(volume_download, id=id, path=path),
+        media_type="application/octet-stream",
+    )
+
+
+@router.delete(
+    "/volume",
+    description="Remove specific volume by ID or Short ID",
+    dependencies=[Depends(token_has_permission([Permission.DeleteVolume]))],
+    responses={200: MESSAGE_OK(), **VOLUME_NOT_FOUND},
+)
+async def delete_volume_api(id: str):
+    await volume_raise_if_not_found(remove_volume, id=id)
+    return JSONResponse({"message": "ok"})
+
+
+@router.delete(
+    "/volume/prune",
+    description="Prune volume",
+    dependencies=[Depends(token_has_permission([Permission.PruneVolume]))],
+    responses={200: {"model": VolumePruneResponse}},
+)
+async def prune_volume_api():
+    return await raise_if_api_error(prune_volumes)
