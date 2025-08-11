@@ -1,7 +1,6 @@
-import { Container, Scroll } from "lucide-react";
+import { Scroll } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import Resource from "@/components/Containers/Resource";
 import api from "@/lib/api";
 import type { APIUser } from "@/lib/typing";
 import { error } from "@/hooks/toasts";
@@ -23,7 +22,7 @@ export function List() {
 
         try {
             await api.get<APIUser>(
-                `/user/has_permissions?permissions=${Permission.SeeContainers}`,
+                `/user/has_permissions?permissions=${Permission.SeeImages}`,
                 {
                     headers: {
                         Authorization: `Bearer ${token}`
@@ -51,7 +50,7 @@ export function List() {
     return (
         <>{
             !allowToSee || errored
-                ? <div className="flex w-screen h-screen">
+                ? <div className="flex w-full h-full">
                     <div className="m-auto">
                         {
                             errored
@@ -64,7 +63,7 @@ export function List() {
                         }
                     </div>
                 </div>
-                : <div className="w-full h-9/10 mt-20 ml-10 flex flex-col">
+                : <div className="w-full h-full mt-20 ml-10 mr-10 flex flex-col">
                     <div className="flex ml-3 items-center">
                         <Scroll className="w-40 h-40" color="#006eff" strokeWidth={1} />
                         <div className="mt-7 ml-5">
@@ -72,7 +71,7 @@ export function List() {
                             <p className="text-2xl mt-1 ml-1">View all your images</p>
                         </div>
                     </div>
-                    <div className="mt-5">
+                    <div className="flex flex-col">
                         <ListImage />
                     </div>
                 </div>
