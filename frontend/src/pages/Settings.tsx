@@ -22,7 +22,7 @@ export default function () {
         else setActiveTab("none");
     }, [selectedTab]);
 
-    return <div className="w-full h-full flex">
+    return <div className="w-screen h-screen flex">
         <div className="w-11/12 h-11/12 flex flex-row m-auto">
             <div className="mt-auto mb-auto w-2/12 h-full border-r-2 flex flex-col gap-2 border-gray-700">
                 <TabItem
@@ -48,7 +48,7 @@ export default function () {
                 {activeTab == "roles" && <Roles />}
                 {activeTab == "none" && <div className="m-auto flex flex-col items-center">
                     <HuhWhale className="size-60" />
-                    <p className="text-2xl">Huh. What are you doing here ?</p>
+                    <p className="text-2xl">Huh. Where am I ?</p>
                 </div>}
             </div>
         </div>
