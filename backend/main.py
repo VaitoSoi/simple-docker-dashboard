@@ -1,9 +1,12 @@
+import os
+from asyncio import to_thread
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from lib.db import ensure_default
+from lib.docker import client, get_images
 from lib.response import MISSING_PERMISSION, USER_NOT_FOUND
 from routes import docker_router, role_router, user_router
 
@@ -11,6 +14,12 @@ from routes import docker_router, role_router, user_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     ensure_default()
+    images = await get_images()
+    if all([image.tags[0] != "busybox" for image in images]):
+        await to_thread(client.images.pull, "busybox")
+    if all([image.tags[0] != "javieraviles/zip" for image in images]):
+        await to_thread(client.images.pull, "javieraviles/zip")
+    os.makedirs('temp/', exist_ok=True)
     yield
 
 
