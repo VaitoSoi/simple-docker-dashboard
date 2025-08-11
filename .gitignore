@@ -4,3 +4,4 @@ node_modules/
 test/
 *.pyc
 __pycache__/
+data/
