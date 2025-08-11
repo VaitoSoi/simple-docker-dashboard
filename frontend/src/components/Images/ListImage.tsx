@@ -9,26 +9,24 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { AxiosError } from "axios";
 import {
-    type ColumnFiltersState,
     flexRender,
     getCoreRowModel,
-    getFilteredRowModel,
     getPaginationRowModel,
     useReactTable,
 } from "@tanstack/react-table";
 import {
+    ChevronDown,
     ChevronLeft,
     ChevronRight,
-    ExternalLink,
+    RefreshCw,
     Trash2
 } from "lucide-react";
 import { HuhError } from "@/components/ui/icon";
 import { error, success } from "@/hooks/toasts";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
 export interface Image extends APIImage {
     using: APIContainer[]
@@ -38,7 +36,7 @@ export default function () {
     const token = localStorage.getItem("token");
 
     const [containers, setContainers] = useState<APIContainer[]>([]);
-    const [images, setImage] = useState<Image[]>([]);
+    const [images, setImages] = useState<Image[]>([]);
 
     const [errored, setErrored] = useState<boolean>(false);
     const [isRunningCommand, setIsRunningCommand] = useState<boolean>(false);
@@ -59,8 +57,6 @@ export default function () {
         } catch (e) {
             setErrored(true);
             console.error(e);
-            if (!(e instanceof AxiosError))
-                console.error(e);
         }
     }
 
@@ -84,15 +80,13 @@ export default function () {
                     ...image,
                 });
 
-            setImage(images);
+            setImages(images);
+            setIsRunningCommand(false);
         } catch (e) {
             setErrored(true);
             console.error(e);
-            if (!(e instanceof AxiosError))
-                console.error(e);
         }
     }
-
 
     async function remove(id: string) {
         try {
@@ -110,8 +104,22 @@ export default function () {
         }
     }
 
+    async function prune(all: boolean = false) {
+        try {
+            setIsRunningCommand(true);
+            await api.delete(`/docker/image/prune?dangling=${!all}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+            success(`Pruned ${all ? "all" : "unused"} images`);
+            getImages();
+        } catch (err) {
+            setIsRunningCommand(false);
+            error("Can't prune images D:");
+        }
+    }
 
-    const [filter, setFilter] = useState<ColumnFiltersState>([]);
     const table = useReactTable<Image>({
         columns: [
             {
@@ -123,11 +131,15 @@ export default function () {
                 id: "tags",
                 header: "Tags",
                 accessorKey: "tags",
-                cell: ({ row, getValue }) =>
-                    <a className="text-blue-500 hover:underline flex flex-row items-center" href={row.original.hub_url}>
-                        <ExternalLink className="mr-1" />
-                        {getValue().join(", ")}
-                    </a>
+                cell: ({ getValue }) => {
+                    const tags = getValue().join(", ");
+                    return tags.length > 50
+                        ? <Tooltip>
+                            <TooltipTrigger>{tags.slice(0, 50) + "..."}</TooltipTrigger>
+                            <TooltipContent>{tags}</TooltipContent>
+                        </Tooltip>
+                        : tags;
+                }
             },
             {
                 id: "using",
@@ -147,49 +159,66 @@ export default function () {
             {
                 id: "action",
                 header: "Action",
-                cell: ({ row }) => <Button
-                    variant="ghost"
-                    className={
-                        !row.original.using.length
-                            ? "hover:text-red-500"
-                            : "hover:text-gray-400"
-                    }
-                    onClick={() => !row.original.using.length && remove(row.original.id)}
-                >
-                    <Trash2 className="size-6" />
-                </Button>
+                cell: ({ row }) => isRunningCommand
+                    ? <RefreshCw className="animate-spin" />
+                    : <Button
+                        variant="ghost"
+                        className={
+                            !row.original.using.length
+                                ? "hover:text-red-500"
+                                : "hover:text-gray-400"
+                        }
+                        onClick={() => !row.original.using.length && remove(row.original.id)}
+                    >
+                        <Trash2 className="size-6" />
+                    </Button>
             }
         ],
         data: images,
         getCoreRowModel: getCoreRowModel(),
         getPaginationRowModel: getPaginationRowModel(),
-        onColumnFiltersChange: setFilter,
-        getFilteredRowModel: getFilteredRowModel(),
-        state: {
-            columnFilters: filter,
-        }
     });
-    useEffect(() => {
-        table.setColumnVisibility({ status: false });
-        table.setColumnFilters([{ id: "status", value: false }]);
-    }, []);
 
 
 
     return <>{
         errored
-            ? <div className="mt-5 mr-5 rounded-md border p-20 flex flex-col items-center">
+            ? <div className="rounded-md border p-20 flex flex-col items-center">
                 <HuhError />
             </div>
-            : <div>
-                {/* <div className="flex flex-row items-center">
-                    <Input placeholder="Search" className="h-10 w-1/4"
-                        value={(table.getColumn("tags")?.getFilterValue() as string) ?? ""}
-                        onChange={(event) =>
-                            table.getColumn("tags")?.setFilterValue(event.target.value)
-                        }
-                    />
-                    <div className="ml-auto mr-10 flex flex-row items-center">
+            : <div className="flex flex-col gap-5">
+                <div className="ml-auto flex flex-row items-center gap-5">
+                    <div className="flex flex-row">
+                        <Button
+                            variant="secondary"
+                            className="rounded-tr-none rounded-br-none cursor-pointer"
+                            onClick={() => prune(false)}
+                        >
+                            <Trash2 />
+                            Prune unused
+                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger>
+                                <Button
+                                    variant="secondary"
+                                    className="rounded-tl-none rounded-bl-none"
+                                >
+                                    <ChevronDown />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                    className="cursor-pointer"
+                                    onClick={() => prune(false)}
+                                >Prune unused</DropdownMenuItem>
+                                <DropdownMenuItem
+                                    className="cursor-pointer"
+                                    onClick={() => prune(true)}
+                                >Prune all</DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                    <div className="flex flex-row items-center">
                         <Button variant="outline"
                             onClick={() => table.previousPage()}
                             disabled={!table.getCanPreviousPage()}
@@ -200,8 +229,8 @@ export default function () {
                             disabled={!table.getCanNextPage()}
                         ><ChevronRight /> Next</Button>
                     </div>
-                </div> */}
-                <div className="mt-5 mr-10 rounded-md border p-4 pr-6 pl-6">
+                </div>
+                <div className="rounded-md border p-4 pr-6 pl-6">
                     <Table>
                         <TableHeader className="text-xl">
                             {table.getHeaderGroups().map((headerGroup) => (
