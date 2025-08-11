@@ -87,7 +87,7 @@ def HTTP_EXECEPTION_MESSAGE(
 def USER_NOT_FOUND():
     return {
         404: HTTP_EXECEPTION_MESSAGE(
-            "role not found", ({"id": {"type": "string"}}, {"id": "string"})
+            "user not found", ({"id": {"type": "string"}}, {"id": "string"})
         )
     }
 
@@ -102,3 +102,5 @@ def MISSING_PERMISSION():
             ),
         )
     }
+
+
