@@ -1,18 +1,25 @@
 import asyncio
+import os
 from asyncio import to_thread
 from queue import Queue
 from threading import Thread
 from typing import Any, Dict, Generator, List, Literal, Tuple, cast
+from uuid import uuid4
 
-# import aiohttp
 import docker
 import psutil
 from docker.errors import ImageNotFound, NotFound
 from docker.models.containers import Container
 from docker.models.images import Image
+from docker.models.volumes import Volume
 from pydantic import BaseModel
 
-from lib.errors import ContainerNotFound, ImageNotFound as _ImageNotFound
+from lib.errors import (
+    ContainerNotFound,
+    ImageNotFound as _ImageNotFound,
+    InvalidPath,
+    VolumeNotFound,
+)
 
 client = docker.from_env()
 
@@ -32,12 +39,19 @@ class FormattedContainer(BaseModel):
     ports: List[str]
 
 
+class ContainerPruneResponse(BaseModel):
+    ContainersDeleted: list[str] | None
+    SpaceReclaimed: int
+
+
 def _format_container(container: Container) -> FormattedContainer:
     return FormattedContainer(
         id=container.id or container.short_id,
         short_id=container.short_id,
         name=container.name,
-        image=container.image.tags[0] if container.image and len(container.image.tags) else "None",
+        image=container.image.tags[0]
+        if container.image and len(container.image.tags)
+        else "None",
         created=container.attrs["Created"],
         status=container.status,
         ports=_format_port_mapping(container.attrs["NetworkSettings"]["Ports"]),
@@ -63,14 +77,18 @@ def _format_port_mapping(
     return maps
 
 
-async def get_containers(all: bool = True):
-    return [
-        _format_container(container)
-        for container in cast(
+async def get_containers_raw(all: bool = True):
+    return sorted(
+        cast(
             List[Container],
             await to_thread(client.containers.list, all),  # type: ignore
-        )
-    ]
+        ),
+        key=lambda container: container.id or container.short_id,
+    )
+
+
+async def get_containers(all: bool = True):
+    return [_format_container(container) for container in await get_containers_raw(all)]
 
 
 async def _get_container(id: str):
@@ -83,6 +101,10 @@ async def _get_container(id: str):
 
 async def get_container(id: str):
     return _format_container(await _get_container(id))
+
+
+async def get_container_raw(id: str):
+    return (await _get_container(id)).attrs
 
 
 async def rename_container(id: str, new_name: str):
@@ -115,9 +137,10 @@ async def remove_container(id: str):
     await to_thread(container.remove)
 
 
-async def inspect_container(id: str):
+async def inspect_container(id: str) -> dict[str, Any]:
     container = await _get_container(id)
     return container.attrs
+
 
 async def top_container(id: str) -> List[Dict[str, str]] | None:
     container = await _get_container(id)
@@ -138,6 +161,22 @@ async def top_container(id: str) -> List[Dict[str, str]] | None:
     return output
 
 
+async def prune_container() -> ContainerPruneResponse:
+    return ContainerPruneResponse(**(await to_thread(client.containers.prune)))  # type: ignore
+
+
+def _stream_logs(log_queue: Queue[str], log_stream: Generator[bytes]):
+    try:
+        for log_line in log_stream:
+            log_queue.put(log_line.decode("utf-8"))
+
+    except Exception as e:
+        log_queue.put(f"Error streaming logs: {str(e)}")
+
+    finally:
+        log_queue.put("SimpleDockerDashboard_EOL")
+
+
 async def docker_logs_stream(
     id: str, tail: int | None
 ) -> Tuple[Queue[str], Generator[bytes]]:
@@ -145,11 +184,12 @@ async def docker_logs_stream(
         log_queue: Queue[str] = Queue()
 
         container = await _get_container(id)
-        log_stream = container.logs(
-            stream=True, follow=True, stdout=True, stderr=True, tail=tail or "all"
+        log_stream = cast(
+            Generator[bytes],
+            container.logs(
+                stream=True, follow=True, stdout=True, stderr=True, tail=tail or "all"
+            ),
         )
-
-        log_stream = cast(Generator[bytes], log_stream)
 
         thread = Thread(
             target=lambda: _stream_logs(log_queue=log_queue, log_stream=log_stream),
@@ -163,17 +203,27 @@ async def docker_logs_stream(
         raise ContainerNotFound()
 
 
-def _stream_logs(log_queue: Queue[str], log_stream: Generator[bytes]):
-    """Thread function to stream logs and put them in queue"""
+async def docker_exec_stream(
+    id: str,
+    cmd: str,
+) -> Tuple[Queue[str], Generator[bytes]]:
     try:
-        for log_line in log_stream:
-            log_queue.put(log_line.decode("utf-8"))
+        log_queue: Queue[str] = Queue()
 
-    except Exception as e:
-        log_queue.put(f"Error streaming logs: {str(e)}")
+        container = await _get_container(id)
 
-    finally:
-        log_queue.put("SimpleDockerDashboard_EOL")
+        log_stream = cast(Generator[bytes], container.exec_run(cmd=cmd, stream=True))  # type: ignore
+
+        thread = Thread(
+            target=lambda: _stream_logs(log_queue=log_queue, log_stream=log_stream),
+            daemon=True,
+        )
+        thread.start()
+
+        return (log_queue, log_stream)
+
+    except NotFound:
+        raise ContainerNotFound()
 
 
 """
@@ -186,6 +236,11 @@ class FormattedImage(BaseModel):
     short_id: str
     tags: List[str]
     # hub_url: str
+
+
+class ImagePruneResponse(BaseModel):
+    ImagesDeleted: list[dict[str, str]] | None
+    SpaceReclaimed: int
 
 
 async def _format_image(image: Image) -> FormattedImage:
@@ -224,7 +279,10 @@ async def _format_image(image: Image) -> FormattedImage:
 
 
 async def get_images():
-    return [await _format_image(image) for image in await to_thread(client.images.list)]
+    return sorted(
+        [await _format_image(image) for image in await to_thread(client.images.list)],
+        key=lambda image: image.id,
+    )
 
 
 async def get_image(id: str):
@@ -235,11 +293,17 @@ async def get_image(id: str):
         raise _ImageNotFound()
 
 
-async def delete_image(id: str):
+async def remove_image(id: str):
     try:
         await to_thread(client.images.remove, id)  # type: ignore
     except ImageNotFound:
         raise _ImageNotFound()
+
+
+async def prune_images(dangling: bool = True) -> ImagePruneResponse:
+    return ImagePruneResponse(
+        **(await to_thread(client.images.prune, {"dangling": dangling}))  # type: ignore
+    )
 
 
 """
@@ -389,3 +453,178 @@ async def get_resource_usage(id: str):
     container = await _get_container(id)
     memory, cpu = await _measure_container_resources(container)
     return ResourceUsage(cpu=cpu, memory=memory)
+
+
+"""
+VOLUMES
+"""
+
+
+class FormattedVolume(BaseModel):
+    id: str
+    short_id: str
+    name: str
+
+
+class VolumeEntry(BaseModel):
+    name: str
+    type: (
+        Literal["directory"]
+        | Literal["file"]
+        | Literal["executable"]
+        | Literal["sock"]
+        | Literal["symlink"]
+        | Literal["other"]
+    )
+
+
+class VolumePruneResponse(BaseModel):
+    VolumesDeleted: list[Any]
+    SpaceReclaimed: int
+
+
+def format_volume(volume: Volume) -> FormattedVolume:
+    return FormattedVolume(
+        id=volume.id or volume.short_id, short_id=volume.short_id, name=volume.name
+    )
+
+
+async def get_volumes() -> list[FormattedVolume]:
+    return sorted(
+        [format_volume(volume) for volume in await to_thread(client.volumes.list)],  # type: ignore
+        key=lambda volume: volume.name,
+    )
+
+
+async def get_volume(id: str) -> FormattedVolume:
+    try:
+        return format_volume(await to_thread(client.volumes.get, id))
+
+    except NotFound:
+        raise VolumeNotFound()
+
+
+async def _get_volume(id: str) -> Volume:
+    try:
+        return await to_thread(client.volumes.get, id)
+
+    except NotFound:
+        raise VolumeNotFound()
+
+
+async def volume_ls(id: str, path: str = "") -> list[VolumeEntry]:
+    await get_volume(id)
+    container = await to_thread(
+        client.containers.run,
+        image="busybox",
+        command=f"ls -F -1 {path}",
+        stdout=True,
+        detach=True,
+        volumes=[f"{id}:/inspect:ro"],
+        working_dir="/inspect",
+    )
+    await to_thread(container.wait)
+    if container.attrs["State"]["ExitCode"] != 0:
+        raise InvalidPath()
+    ls = container.logs().decode()
+    await to_thread(container.remove, force=True)
+    entries = ls.splitlines()
+    formatted_entries: list[VolumeEntry] = []
+    for entry in entries:
+        entry_type = (
+            "directory"
+            if entry.endswith("/")
+            else "executable"
+            if entry.endswith("*")
+            else "symlink"
+            if entry.endswith("@")
+            else "sock"
+            if entry.endswith("=")
+            else "other"
+            if entry.endswith("%") or entry.endswith("|")
+            else "file"
+        )
+        formatted_entries.append(
+            VolumeEntry(
+                name=(entry if entry_type == "file" else entry[:-1]), type=entry_type
+            )
+        )
+    return formatted_entries
+
+
+async def volume_cat(id: str, path: str) -> str:
+    await get_volume(id)
+    container = await to_thread(
+        client.containers.run,
+        image="busybox",
+        command=f"cat {path}",
+        stdout=True,
+        detach=True,
+        volumes=[f"{id}:/inspect:ro"],
+        working_dir="/inspect",
+    )
+    await to_thread(container.wait)
+    if container.attrs["State"]["ExitCode"] != 0:
+        await to_thread(container.remove)
+        raise InvalidPath()
+    content = container.logs().decode()
+    await to_thread(container.remove, force=True)
+    return content
+
+
+async def volume_download(id: str, path: str):
+    if not path:
+        raise InvalidPath
+    dir_frag = [frag for frag in path.split("/") if frag.strip() != ""]
+    dir = "/".join(dir_frag[:-1])
+    target = dir_frag[-1]
+    entry = [entry for entry in await volume_ls(id, dir) if entry.name == target][0]
+
+    entry_id = uuid4()
+    if entry.type == "directory":
+        await to_thread(
+            client.containers.run,
+            image="javieraviles/zip",
+            command=f"zip -r /output/{entry_id}.zip {path}",
+            volumes=[
+                f"{id}:/inspect:ro",
+                f"{os.path.join(os.getcwd(), 'temp')}:/output",
+            ],
+            working_dir="/inspect",
+            remove=True,
+        )
+    else:
+        await to_thread(
+            client.containers.run,
+            image="busybox",
+            command=f"cp {path} /output/{entry_id}",
+            volumes=[
+                f"{id}:/inspect:ro",
+                f"{os.path.join(os.getcwd(), 'temp')}:/output",
+            ],
+            working_dir="/inspect",
+            remove=True,
+        )
+    uid = os.getuid()
+    ext = ".zip" if entry.type == "directory" else ""
+    await to_thread(
+        client.containers.run,
+        image="busybox",
+        command=f"chown {uid}:{uid} /output/{entry_id}{ext}",
+        volumes=[f"{os.path.join(os.getcwd(), 'temp')}:/output"],
+        working_dir="/output",
+        remove=True,
+    )
+    entry_path = os.path.join(".", "temp", f"{entry_id}{ext}")
+    output = open(entry_path, "rb").read()
+    os.remove(entry_path)
+    return output
+
+
+async def remove_volume(id: str):
+    volume = await _get_volume(id)
+    await to_thread(volume.remove)
+
+
+async def prune_volumes():
+    return VolumePruneResponse(**(await to_thread(client.volumes.prune)))
