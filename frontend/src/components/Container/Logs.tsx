@@ -13,7 +13,6 @@ export default function ({ id, reload }: { id: string, reload: boolean }) {
     const token = localStorage.getItem("token");
 
     const baseUrl = api.defaults.baseURL
-        .replace("https", "wss")
         .replace("http", "ws");
 
     const dumpItem = useRef(null);
@@ -21,11 +20,6 @@ export default function ({ id, reload }: { id: string, reload: boolean }) {
     const [url, setUrl] = useState<string>("");
     const [logs, setLogs] = useState<string[]>([]);
     const { lastMessage, getWebSocket, readyState } = useWebSocket(url);
-    useEffect(() => {
-        if (!lastMessage) return;
-        if (lastMessage.data == "SimpleDockerDashboard_Ping") return;
-        chunks.current.push(lastMessage.data);
-    }, [lastMessage]);
     const [errored, setErrored] = useState<boolean>(false);
 
     const logViewer = useRef(null);
@@ -61,6 +55,12 @@ export default function ({ id, reload }: { id: string, reload: boolean }) {
             }
         }
     }
+
+    useEffect(() => {
+        if (!lastMessage) return;
+        if (lastMessage.data == "SimpleDockerDashboard_Ping") return;
+        chunks.current.push(lastMessage.data);
+    }, [lastMessage]);
     useEffect(() => {
         dumpItem.current = setInterval(() => {
             if (chunks.current.length)
@@ -95,13 +95,13 @@ export default function ({ id, reload }: { id: string, reload: boolean }) {
     useEffect(() => {
         setUrl("");
         setLogs([]);
-        setTimeout(() =>
-            setUrl(
+        setTimeout(
+            () => setUrl(
                 `${baseUrl}/docker/logs` +
                 `?id=${id}` +
                 `&token=${token}`
             )
-        , 0);
+        );
     }, [reload]);
 
     return <>{
