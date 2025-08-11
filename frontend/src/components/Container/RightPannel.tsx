@@ -35,6 +35,7 @@ export default function ({ id, reloadLogsState }: { id: string, reloadLogsState:
     const [cpu, setCpu] = useState<number>();
     const [memory, setMemory] = useState<number>();
     async function getMetrics() {
+        if (!isRunning) return;
         try {
             const response = await api.get<{ cpu: number, memory: number }>(`/docker/resource?id=${id}`, {
                 headers: {
@@ -55,6 +56,7 @@ export default function ({ id, reloadLogsState }: { id: string, reloadLogsState:
         }
     }
     useEffect(() => {
+        getMetrics();
         refreshInterval.current = setInterval(() => void getMetrics(), 5000);
         return () => clearInterval(refreshInterval.current);
     }, []);
