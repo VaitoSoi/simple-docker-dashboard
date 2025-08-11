@@ -17,6 +17,8 @@ import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import Settings from "./pages/Settings";
+import Volumes from "./pages/Volumes";
+import Volume from "./pages/Volume";
 
 const router = createBrowserRouter([
     { path: "/", element: <Combine><Landing /></Combine> },
@@ -24,6 +26,8 @@ const router = createBrowserRouter([
     { path: "/containers", element: <Combine><Containers /></Combine> },
     { path: "/container/:id", element: <Combine><Container /></Combine> },
     { path: "/images", element: <Combine><Images /></Combine> },
+    { path: "/volumes", element: <Combine><Volumes /></Combine> },
+    { path: "/volume/:id", element: <Combine><Volume /></Combine> },
     { path: "/settings", element: <Combine><Settings /></Combine> },
     { path: "*", element: <WithNavigationBar><NotFound /></WithNavigationBar> },
 ]);
