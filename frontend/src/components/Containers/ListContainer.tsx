@@ -25,7 +25,6 @@ import {
 import {
     ChevronLeft,
     ChevronRight,
-    ExternalLink,
     MoreVertical,
     Play,
     RefreshCw,
@@ -53,8 +52,8 @@ export default function () {
     const [isRunningCommand, setIsRunningCommand] = useState<boolean>(false);
 
 
-    useEffect(() => void getContainer(), []);
-    async function getContainer() {
+    useEffect(() => void getContainers(), []);
+    async function getContainers() {
         try {
             const response = await api.get<APIContainer[]>(
                 `/docker/containers?show_all=True`,
@@ -113,7 +112,7 @@ export default function () {
                 }
             });
             success("Started container");
-            getContainer();
+            getContainers();
         } catch {
             setIsRunningCommand(false);
             error("Can't start container D:");
@@ -129,7 +128,7 @@ export default function () {
                 }
             });
             success("Stopped container");
-            getContainer();
+            getContainers();
         } catch {
             setIsRunningCommand(false);
             error("Can't stop container D:");
@@ -145,7 +144,7 @@ export default function () {
                 }
             });
             success("Killed container");
-            getContainer();
+            getContainers();
         } catch {
             setIsRunningCommand(false);
             error("Can't kill container D:");
@@ -161,7 +160,7 @@ export default function () {
                 }
             });
             success("Restarted container");
-            getContainer();
+            getContainers();
         } catch {
             setIsRunningCommand(false);
             error("Can't restart container D:");
@@ -191,13 +190,27 @@ export default function () {
                 }
             });
             success("Removed container");
-            getContainer();
+            getContainers();
         } catch {
             setIsRunningCommand(false);
             error("Can't remove container D:");
         }
     }
-
+    async function prune() {
+        try {
+            setIsRunningCommand(true);
+            await api.delete(`/docker/container/prune`, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+            success(`Pruned containers`);
+            getContainers();
+        } catch (err) {
+            setIsRunningCommand(false);
+            error("Can't prune images D:");
+        }
+    }
 
     const [filter, setFilter] = useState<ColumnFiltersState>([]);
     const table = useReactTable<APIContainer>({
@@ -214,11 +227,18 @@ export default function () {
                 header: "Name",
                 accessorKey: "name",
                 cell: ({ getValue, row }) => {
-                    const name = getValue();
+                    const name = getValue() as string;
                     const status = row.original.status;
                     return <div className="flex items-center gap-1.5">
                         <span className={`w-5 h-5 rounded-full ${status == "running" ? "bg-green-400" : "bg-gray-400"}`} />
-                        <a className="text-blue-500 hover:underline" href={`/container/${name}`}>{name}</a>
+                        <a className="text-blue-500 hover:underline" href={`/container/${name}`}>
+                            {name.length > 30
+                                ? <Tooltip>
+                                    <TooltipTrigger>{name.slice(0, 30) + "..."}</TooltipTrigger>
+                                    <TooltipContent>{name}</TooltipContent>
+                                </Tooltip>
+                                : name}
+                        </a>
                     </div>;
                 }
             },
@@ -231,19 +251,28 @@ export default function () {
                 id: "image",
                 header: "Image",
                 accessorKey: "image",
+                cell: ({ getValue }) => {
+                    const image = getValue();
+                    return image.length >= 30
+                        ? <Tooltip>
+                            <TooltipTrigger>{image.slice(0, 30) + "..."}</TooltipTrigger>
+                            <TooltipContent>{image}</TooltipContent>
+                        </Tooltip>
+                        : image;
+                }
             },
             {
-                id: "lastStarted",
-                header: "Last started",
+                id: "lastCreated",
+                header: "Created",
                 accessorKey: "created",
                 cell: ({ getValue }) => {
                     const date = new Date(getValue());
                     return <Tooltip>
                         <TooltipTrigger>
-                            <p>{`${ms(Date.now() - date.getTime(), { long: true })} ago`}</p>
+                            {`${ms(Date.now() - date.getTime(), { long: true })} ago`}
                         </TooltipTrigger>
                         <TooltipContent>
-                            <p>{date.toUTCString()}</p>
+                            {date.toUTCString()}
                         </TooltipContent>
                     </Tooltip>;
                 }
@@ -365,12 +394,20 @@ export default function () {
                         }}
                     />
                     <p className="text-lg">Show all containers</p>
-                    <div className="ml-auto mr-10 flex flex-row items-center">
+                    <div className="ml-auto mr-10 gap-2 flex flex-row items-center">
+                        <Button
+                            variant="secondary"
+                            className="cursor-pointer"
+                            onClick={() => prune()}
+                        >
+                            <Trash2 />
+                            Prune unused
+                        </Button>
                         <Button variant="outline"
                             onClick={() => table.previousPage()}
                             disabled={!table.getCanPreviousPage()}
                         ><ChevronLeft /> Previous</Button>
-                        <p className="ml-2 mr-3 text-lg">{table.getState().pagination.pageIndex + 1}/{table.getPageCount()}</p>
+                        <p className="text-lg">{table.getState().pagination.pageIndex + 1}/{table.getPageCount()}</p>
                         <Button variant="outline"
                             onClick={() => table.nextPage()}
                             disabled={!table.getCanNextPage()}
