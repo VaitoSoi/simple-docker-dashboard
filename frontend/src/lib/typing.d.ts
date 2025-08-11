@@ -32,6 +32,10 @@ export interface APIContainer {
 export interface APIImage {
     id: string,
     short_id: string,
-    tags: string[],
-    hub_url: string
+    tags: string[]
+}
+
+export interface APIVolume {
+    id: string,
+    short_id: string
 }
