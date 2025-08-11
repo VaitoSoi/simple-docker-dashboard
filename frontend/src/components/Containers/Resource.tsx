@@ -43,7 +43,8 @@ export default function () {
         }
     }
     useEffect(() => {
-        refreshInterval.current = setInterval(() => { getResourceUsage(); }, 5000);
+        getResourceUsage();
+        refreshInterval.current = setInterval(() => void getResourceUsage(), 5000);
         return () => clearRefreshInterval();
     }, []);
 
