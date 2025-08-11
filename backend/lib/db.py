@@ -322,12 +322,13 @@ def user_has_permission(user: User, permissions: List[Permission]) -> bool:
         if permission_bit >= 10:
             permission_bit_str = permission_bit.__str__()
             s_prefix, s_suffix = permission_bit_str[0], permission_bit_str[1:]
+            print(s_prefix, s_suffix)
             prefix = int(s_prefix)
             suffix = int(s_suffix)
 
             if suffix != 0 and (
-                Permission(prefix * (10 ** s_suffix.__len__())) in user.permissions
-                or prefix * (10 ** s_suffix.__len__()) in everyone.permissions
+                Permission(prefix) in user.permissions
+                or prefix in everyone.permissions
             ):
                 continue
 
