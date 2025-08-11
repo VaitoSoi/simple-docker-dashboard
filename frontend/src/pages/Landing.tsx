@@ -1,4 +1,4 @@
-import { Container, Scroll, Settings } from "lucide-react";
+import { Container, Database, Scroll, Settings } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useEffect, type ComponentProps } from "react";
 import { GitHub } from "@/components/ui/icon";
@@ -45,30 +45,29 @@ export default function () {
                 }</p>
                 <p className="text-2xl mt-2 ">This is a simple Docker Dashboard, choose where you want to go.</p>
                 <div className="flex flex-row gap-5 mt-10">
-                    <NavigationBarItem navigator={navigator} path="/containers">
+                    <NavigationItem navigator={navigator} path="/containers">
                         <Container strokeWidth={1} className="h-40 w-40 mt-4" />
                         <p className="text-2xl">Containers</p>
-                    </NavigationBarItem>
-                    <NavigationBarItem navigator={navigator} path="/images">
+                    </NavigationItem>
+                    <NavigationItem navigator={navigator} path="/images">
                         <Scroll strokeWidth={1} className="h-40 w-40 mt-4" />
                         <p className="text-2xl">Images</p>
-                    </NavigationBarItem>
-                    <NavigationBarItem navigator={navigator} path="/settings?tab=user">
+                    </NavigationItem>
+                    <NavigationItem navigator={navigator} path="/volumes"
+                    >
+                        <Database strokeWidth={1} className="h-40 w-40 mt-4" />
+                        <p className="text-2xl">Volumes</p>
+                    </NavigationItem>
+                    <NavigationItem navigator={navigator} path="/settings?tab=user">
                         <Settings strokeWidth={1} className="h-40 w-40 mt-4" />
                         <p className="text-2xl">Settings</p>
-                    </NavigationBarItem>
-                    <NavigationBarItem navigator={navigator}
-                        onClick={() => window.location.href = "https://github.com/vaitosoi/simple-docker-dashboard/"}
-                    >
-                        <GitHub className="h-40 w-40 mt-4" />
-                        <p className="text-2xl">GitHub</p>
-                    </NavigationBarItem>
+                    </NavigationItem>
                 </div>
             </div>
     }</>;
 }
 
-export function NavigationBarItem({ children, className, navigator, path, ...prop }: ComponentProps<"div"> & { navigator: ReturnType<typeof useNavigate>, path?: string }) {
+export function NavigationItem({ children, className, navigator, path, ...prop }: ComponentProps<"div"> & { navigator: ReturnType<typeof useNavigate>, path?: string }) {
     return <div
         className={cn("w-60 h-60 flex flex-col items-center rounded-md border-2 hover:bg-gray-100 dark:hover:bg-gray-300", className)}
         onClick={() => navigator(path || "/", { viewTransition: true })}
