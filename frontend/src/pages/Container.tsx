@@ -11,6 +11,7 @@ import { HuhError, HuhWhale, Loading } from "@/components/ui/icon";
 import Top from "@/components/Container/Top";
 import { type APIContainer } from "@/lib/typing";
 import RightPannel from "@/components/Container/RightPannel";
+import Explorer from "@/components/Container/Explorer";
 
 export default function () {
     const token = localStorage.getItem('token');
@@ -64,7 +65,7 @@ export default function () {
                             </>
                 }</div>
             </div>
-            : <div className="h-screen w-screen">
+            : <div className="h-screen w-screen flex flex-col">
                 <div className="h-1/3 w-full flex">
                     <div className="flex ml-20 mt-auto mb-auto">
                         <Container className="w-40 h-40" color="#006eff" strokeWidth={1} />
@@ -76,14 +77,18 @@ export default function () {
                     <RightPannel id={id} reloadLogsState={[reloadLogs, setReloadLogs]} />
                 </div>
                 <Tabs className="h-2/3 flex flex-col w-full pl-10 pr-10" defaultValue="logs">
-                    <TabsList className="h-[5%]">
+                    <TabsList className="h-fit">
                         <TabsTrigger value="logs"><p className="text-lg">Logs</p></TabsTrigger>
                         <TabsTrigger value="inspect"><p className="text-lg">Inspect</p></TabsTrigger>
                         <TabsTrigger value="top"><p className="text-lg">Proccess</p></TabsTrigger>
+                        <TabsTrigger value="explorer"><p className="text-lg">Explorer</p></TabsTrigger>
                     </TabsList>
-                    <TabsContent className="h-[90%]" value="logs"><Logs id={id} reload={reloadLogs} /></TabsContent>
-                    <TabsContent className="h-[90%]" value="inspect"><Inspect id={id} /></TabsContent>
-                    <TabsContent className="h-[90%]" value="top"><Top id={id} /></TabsContent>
+                    <div className="h-18/20">    
+                        <TabsContent className="h-full" value="logs"><Logs id={id} reload={reloadLogs} /></TabsContent>
+                        <TabsContent className="h-full" value="inspect"><Inspect id={id} /></TabsContent>
+                        <TabsContent className="h-full" value="top"><Top id={id} /></TabsContent>
+                        <TabsContent className="h-full" value="explorer"><Explorer id={id} /></TabsContent>
+                    </div>
                 </Tabs>
             </div>
     }</>;

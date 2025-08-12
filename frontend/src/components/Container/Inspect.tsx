@@ -20,7 +20,7 @@ export default function ({ id }: { id: string }) {
         }
     }
 
-    return <div className="w-full h-[95%] p-4 bg-gray-800 border rounded-md overflow-scroll">
+    return <div className="w-full h-full p-4 bg-gray-800 border rounded-md overflow-scroll">
         {inspectInfo?.map((line) =>
             <p className="text-white font-mono whitespace-pre">{line}</p>
         )}

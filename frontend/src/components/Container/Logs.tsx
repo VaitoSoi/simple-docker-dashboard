@@ -106,19 +106,20 @@ export default function ({ id, reload }: { id: string, reload: boolean }) {
 
     return <>{
         !allowToSee
-            ? <div className="flex w-full h-11/12 rounded-md border">{
+            ? <div className="flex w-full h-full rounded-md border">{
                 allowToSee == null
                     ? <Loading className="m-auto" />
                     : <Forbidden className="m-auto" />
             }</div>
-            : <div className="h-full w-full">
-                <div className="flex flex-row items-center">
+            : <div className="h-full w-full flex flex-col">
+                <div className="flex h-fit flex-row items-center">
                     <Switch
                         checked={autoScroll}
                         onCheckedChange={(checked) => setAutoScroll(checked)}
                     />
                     <p className="text-lg ml-2">Stick to the bottom</p>
-                </div><div className="bg-gray-800 w-full h-11/12 border rounded-md p-4 overflow-scroll">
+                </div>
+                <div className="bg-gray-800 w-full h-full border rounded-md p-4 overflow-scroll">
                     {logs.map(log =>
                         <p className="text-white whitespace-nowrap font-mono">
                             {log}

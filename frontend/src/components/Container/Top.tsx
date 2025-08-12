@@ -42,7 +42,7 @@ export default function ({ id }: { id: string }) {
             ? <div className="rounded-md border p-20 flex flex-col items-center">
                 <HuhError />
             </div>
-            : <div className="h-11/12 w-full rounded-md border p-4 pr-6 pl-6 bg-gray-800 text-white">
+            : <div className="h-full w-full rounded-md border p-4 pr-6 pl-6 bg-gray-800 text-white">
                 <Table className="overflow-scroll">
                     <TableHeader className="text-xl font-mono">
                         <TableHead className="text-white">UID</TableHead>
