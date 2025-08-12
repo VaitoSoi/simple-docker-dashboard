@@ -16,8 +16,17 @@ class ImageNotFound(NotFound):
 class VolumeNotFound(NotFound):
     ...
 
+class TerminalNotFound(NotFound):
+    ...
+
+class CommandNotFound(NotFound):
+    ...
+
+
+
 class MissingError(Exception):
     ...
+
 
 
 class Existed(Exception):
@@ -27,8 +36,11 @@ class UserExisted(Existed):
     ...
 
 
+
 class RoleExisted(Existed):
     ...
+
+
 
 class Invalid(Exception):
     ...
@@ -48,8 +60,12 @@ class InvalidRoleHex(Invalid):
 class InvalidPath(Invalid):
     ...
 
+
+
 class NotAllowed(Exception):
     ...
+
+
 
 class WrongPassword(Exception):
     ...
