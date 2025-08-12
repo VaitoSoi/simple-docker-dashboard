@@ -39,3 +39,14 @@ export interface APIVolume {
     id: string,
     short_id: string
 }
+
+export interface DirEntryAPI {
+    name: string,
+    type:
+    | "directory"
+    | "file"
+    | "executable"
+    | "sock"
+    | "symlink"
+    | "other"
+}
