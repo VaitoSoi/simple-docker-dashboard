@@ -1,13 +1,16 @@
-import asyncio
 import os
-from asyncio import to_thread
-from queue import Queue
-from threading import Thread
+import shutil
+import tarfile
+from asyncio import Task, create_task, gather, to_thread
+from queue import Empty, Queue
+from socket import socket as _socket
+from threading import Event, Thread
 from typing import Any, Dict, Generator, List, Literal, Tuple, cast
 from uuid import uuid4
 
 import docker
 import psutil
+from docker.constants import STREAM_HEADER_SIZE_BYTES
 from docker.errors import ImageNotFound, NotFound
 from docker.models.containers import Container
 from docker.models.images import Image
@@ -15,13 +18,28 @@ from docker.models.volumes import Volume
 from pydantic import BaseModel
 
 from lib.errors import (
+    CommandNotFound,
     ContainerNotFound,
     ImageNotFound as _ImageNotFound,
     InvalidPath,
+    TerminalNotFound,
     VolumeNotFound,
 )
+from lib.utils import expect_type
 
 client = docker.from_env()
+
+
+class DirEntry(BaseModel):
+    name: str
+    type: (
+        Literal["directory"]
+        | Literal["file"]
+        | Literal["executable"]
+        | Literal["sock"]
+        | Literal["symlink"]
+        | Literal["other"]
+    )
 
 
 """
@@ -203,27 +221,187 @@ async def docker_logs_stream(
         raise ContainerNotFound()
 
 
-async def docker_exec_stream(
-    id: str,
-    cmd: str,
-) -> Tuple[Queue[str], Generator[bytes]]:
-    try:
-        log_queue: Queue[str] = Queue()
+class ExecResponse(BaseModel):
+    command: str
+    output: str
+    pwd: str
 
+
+async def get_docker_exec(
+    id: str,
+    input: Queue[bytes],
+) -> tuple[Queue[ExecResponse], Event, Task[None]]:
+    try:
         container = await _get_container(id)
 
-        log_stream = cast(Generator[bytes], container.exec_run(cmd=cmd, stream=True))  # type: ignore
-
-        thread = Thread(
-            target=lambda: _stream_logs(log_queue=log_queue, log_stream=log_stream),
-            daemon=True,
+        exit_code, _ = cast(
+            tuple[int, bytes],
+            container.exec_run(cmd='/bin/sh -c "echo Hello"'),  # type: ignore
         )
-        thread.start()
+        if exit_code != 0:
+            raise TerminalNotFound()
 
-        return (log_queue, log_stream)
+        _, raw_socket = container.exec_run(cmd="/bin/sh", stdin=True, socket=True)  # type: ignore
+        socket = expect_type(raw_socket._sock, _socket)  # type: ignore
+
+        event = Event()
+        output = Queue[ExecResponse]()
+
+        return (
+            output,
+            event,
+            create_task(to_thread(_exec_command, socket, event, input, output)),
+        )
 
     except NotFound:
         raise ContainerNotFound()
+
+
+def _exec_command(
+    sock: _socket, event: Event, input: Queue[bytes], output: Queue[ExecResponse]
+):
+    while not event.is_set():
+        try:
+            command = input.get(timeout=5)
+        except Empty:
+            continue
+
+        data = [
+            frag.decode()
+            for frag in _send_command(sock, command).split(
+                b"\x01\x00\x00\x00\x00\x00\x00\x02"
+            )
+        ]
+        data = (
+            data
+            if len(data) >= 2
+            else [data[0], ""]
+            if " " in data[0]
+            else ["", data[0]]
+        )
+        res, pwd = [frag.rstrip("\n") for frag in data]
+
+        print(res, pwd)
+
+        output.put(ExecResponse(command=command.decode(), output=res, pwd=pwd))
+
+
+def _send_command(sock: _socket, command: bytes) -> bytes:
+    sock.sendall(command)
+
+    sock.recv(STREAM_HEADER_SIZE_BYTES)
+
+    buffer_size = 4096  # 4 KB
+    data = b""
+    while True:
+        part = sock.recv(buffer_size)
+        data += part
+        if len(part) < buffer_size:
+            # either 0 or end of data
+            break
+    return data
+
+
+async def container_ls(id: str, path: str = "/") -> list[DirEntry]:
+    container = await _get_container(id)
+    exit_code, ls = cast(
+        tuple[int, bytes],
+        await to_thread(
+            container.exec_run,  # type: ignore
+            cmd=f"ls -F -1 {path}",
+            stdout=True,
+        ),
+    )
+    if exit_code != 0:
+        raise CommandNotFound()
+    entries = ls.decode().splitlines()
+    formatted_entries: list[DirEntry] = []
+    for entry in entries:
+        entry_type = (
+            "directory"
+            if entry.endswith("/")
+            else "executable"
+            if entry.endswith("*")
+            else "symlink"
+            if entry.endswith("@")
+            else "sock"
+            if entry.endswith("=")
+            else "other"
+            if entry.endswith("%") or entry.endswith("|")
+            else "file"
+        )
+        formatted_entries.append(
+            DirEntry(
+                name=(entry if entry_type == "file" else entry[:-1]), type=entry_type
+            )
+        )
+    return formatted_entries
+
+
+async def container_cat(id: str, path: str) -> str:
+    container = await _get_container(id)
+    exit_code, cat = cast(
+        tuple[int, bytes],
+        await to_thread(
+            container.exec_run,  # type: ignore
+            cmd=f"cat {path}",
+            stdout=True,
+        ),
+    )
+    if exit_code != 0:
+        raise CommandNotFound()
+    content = cat.decode()
+    return content
+
+
+async def container_download(id: str, path: str) -> bytes:
+    container = await _get_container(id)
+    if not path:
+        raise InvalidPath
+    dir_frag = [frag for frag in path.split("/") if frag.strip() != ""]
+    dir = "/".join(dir_frag[:-1])
+    target = dir_frag[-1]
+    entry = [entry for entry in await container_ls(id, dir) if entry.name == target][0]
+
+    stream, _ = cast(
+        tuple[Generator[bytes], dict[str, Any]],
+        client.api.get_archive(container.id or container.short_id, path),  # type: ignore
+    )
+    data = b""
+    for piece in stream:
+        data += piece
+
+    base_path = os.path.join(".", "temp")
+    archive_id = uuid4().__str__()
+
+    tar_path = os.path.join(base_path, f"{archive_id}.tar.gz")
+    with open(tar_path, "wb+") as file:
+        file.write(data)
+
+    extract_dir = os.path.join(base_path, archive_id)
+    with tarfile.open(tar_path) as tar_file:
+        tar_file.extractall(extract_dir)
+
+    response = b""
+    if entry.type == "directory":
+        zip_path = os.path.join(base_path, f"{archive_id}")
+        shutil.make_archive(zip_path, "zip", extract_dir)
+        
+        zip_path += ".zip"
+        with open(zip_path, "rb") as file:
+            response = file.read()
+
+        os.remove(zip_path)
+    
+    else:
+        target_path = os.path.join(base_path, archive_id, target)
+        with open(target_path, "rb") as file:
+            response = file.read()
+
+    os.remove(tar_path)
+    shutil.rmtree(extract_dir)
+    return response
+
 
 
 """
@@ -418,9 +596,7 @@ async def get_resource_usages() -> ResourceUsages:
             _measure_container_resources(container) for container in containers
         ]
 
-        measurement_results = await asyncio.gather(
-            *measurement_tasks, return_exceptions=True
-        )
+        measurement_results = await gather(*measurement_tasks, return_exceptions=True)
 
         docker_memory_usage = 0.0
         docker_cpu_usage = 0.0
@@ -466,18 +642,6 @@ class FormattedVolume(BaseModel):
     name: str
 
 
-class VolumeEntry(BaseModel):
-    name: str
-    type: (
-        Literal["directory"]
-        | Literal["file"]
-        | Literal["executable"]
-        | Literal["sock"]
-        | Literal["symlink"]
-        | Literal["other"]
-    )
-
-
 class VolumePruneResponse(BaseModel):
     VolumesDeleted: list[Any]
     SpaceReclaimed: int
@@ -512,7 +676,7 @@ async def _get_volume(id: str) -> Volume:
         raise VolumeNotFound()
 
 
-async def volume_ls(id: str, path: str = "") -> list[VolumeEntry]:
+async def volume_ls(id: str, path: str = "") -> list[DirEntry]:
     await get_volume(id)
     container = await to_thread(
         client.containers.run,
@@ -529,7 +693,7 @@ async def volume_ls(id: str, path: str = "") -> list[VolumeEntry]:
     ls = container.logs().decode()
     await to_thread(container.remove, force=True)
     entries = ls.splitlines()
-    formatted_entries: list[VolumeEntry] = []
+    formatted_entries: list[DirEntry] = []
     for entry in entries:
         entry_type = (
             "directory"
@@ -545,7 +709,7 @@ async def volume_ls(id: str, path: str = "") -> list[VolumeEntry]:
             else "file"
         )
         formatted_entries.append(
-            VolumeEntry(
+            DirEntry(
                 name=(entry if entry_type == "file" else entry[:-1]), type=entry_type
             )
         )
@@ -574,7 +738,7 @@ async def volume_cat(id: str, path: str) -> str:
 
 async def volume_download(id: str, path: str):
     if not path:
-        raise InvalidPath
+        raise InvalidPath()
     dir_frag = [frag for frag in path.split("/") if frag.strip() != ""]
     dir = "/".join(dir_frag[:-1])
     target = dir_frag[-1]
