@@ -24,8 +24,8 @@ This also provide you a role-base system for access manager.
 |Services|Language|Framework|Runtime|Port (default)|
 |-|-|-|-|-|
 |Backend|Python|[FastAPI](https://fastapi.tiangolo.com/)|[Python](https://www.python.org/)|8000|
-|Frontend|TypeScript|[React](https://react.dev/)|[Bun](https://bun.sh)|8080
+|Frontend|TypeScript|[React](https://react.dev/)|[Bun](https://bun.sh)|8080|
 
 ## IV. Notes:
 
-While running, backend will pull two images is: `busybox` (for inspecting files, folder) and `javieraviles/zip` (for zipping file). Please don't remove two images or you will have to wait every time you go to the `Volumes` page. Also don't delete the `temp` folder, it is the place where backend will put the file pulled from the volume
+While running, backend will pull two images is: `busybox` (for inspecting files, folder) and `javieraviles/zip` (for zipping file). Please don't remove two images or you will have to wait every time you go to the `Volumes` page. Also don't delete the `temp` folder, it is the place where backend will put the file pulled from the volume and container.

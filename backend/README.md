@@ -6,96 +6,62 @@ This is a simple FastAPI app, use JWT for token creation, SQLModel for interacti
 
 ## II. Endpoints
 
-### 1. Docker
-
-#### a. Containers
-
-|Method|Path|Require permission|Description|
-|------|----|------------------|-----------|
-|`GET`|`/docker/containers`|`SeeContainers`|Get all containers|
-|`GET`|`/docker/container`|`SeeContainers`|Get specific container by ID, Short ID or Name|
-|`GET`|`/docker/inspect`|`SeeContainers`|Get specific container attributes by ID, Short ID or Name|
-|`GET`|`/docker/top`|`SeeContainers`|Get specific container running process by ID, Short ID or Name|
-|`POST`|`/docker/start`|`StartContainers`|Start specific container by ID, Short ID or Name|
-|`POST`|`/docker/stop`|`StopContainers`|Stop specific container by ID, Short ID or Name|
-|`POST`|`/docker/rename`|`RenameContainers`|Rename specific container by ID, Short ID or Name|
-|`POST`|`/docker/restart`|`RestartContainers`|Restart specific container by ID, Short ID or Name|
-|`POST`|`/docker/kill`|`KillContainers`|Kill specific container by ID, Short ID or Name|
-|`DELETE`|`/docker/container`|`SeeContainers`|Remove specific container by ID, Short ID or Name|
-|Websocket|`/docker/logs`|`SeeLogs`|Get specific container logs stream by ID, Short ID or Name|
-
-#### b. Images
-
-|Method|Path|Require permission|Description|
-|------|----|------------------|-----------|
-|`GET`|`/docker/images`|`SeeImages`|Get all images|
-|`GET`|`/docker/image`|`SeeImages`|Get specific image by ID or Short ID|
-|`DELETE`|`/docker/image`|`DeleteImages`|Remove specific image by ID or Short ID|
-
-##### c. Mics
-
-|Method|Path|Require permission|Description|
-|------|----|------------------|-----------|
-|`GET`|`/docker/resource`|`Resource`|Get resource usage by Docker and system|
-
-### 2. Users
-
-|Method|Path|Require permission|Description|
-|------|----|------------------|-----------|
-|`GET`|`/user/me`|/|Get current user|
-|`POST`|`/user/login`|/|Login and get token|
-|`GET`|`/user/`|`SeeUsers`|Get specific user by ID or Username or get all users|
-|`GET`|`/user/has_permission`|/|Check if current has require permssion|
-|`POST`|`/user/`|/|Create new user|
-|`PUT`|`/user/`|/|Update current user or a specific user by ID|
-|`DELETE`|`/user/`|/|Delete current user or a specific user by ID|
-
-### 3. Roles
-
-|Method|Path|Require permission|Description|
-|------|----|------------------|-----------|
-|`GET`|`/role/`|`SeeRoles`|Get all role or a specific role by ID|
-|`GET`|`/role/permissions`|`SeePermission`|Get all permissions|
-|`POST`|`/role/`|`CreateROle`|Create new role|
-|`PUT`|`/role/grant`|`GrantRoles`|Grant a role to user|
-|`PUT`|`/role/`|`UpdateRole`|Update role|
-|`DELETE`|`/role`|`DeleteRole`|Delete role|
+* I'm too lazy to list there 😭
+* Please visit the endpoint `/docs` for more information ;-;
 
 ## III. Permissions
 
 ### 1. List of permissions
 
-|Name|Value|
-|-|-|
-Administrator | 0
-**Containers group**|-
-Containers | 10
-SeeContainers | 11
-RenameContainer | 12
-StartContainer | 13
-RestartContainer | 14
-KillContainer | 15
-StopContainer | 16
-RemoveContainer | 17
-SeeLogs | 18
-Resource | 19
-**Image group**|-
-Images | 20
-SeeImages | 21
-DeleteImage | 22
-**Role group**|-
-Roles | 30
-SeeRoles | 31
-CreateRole | 32
-GrantRoles | 33
-UpdateRole | 34
-DeleteRole | 35
-SeePermissions | 36
-**User group**|-
-Users | 40
-SeeUsers | 41
-UpdateUsers | 42
-DeleteUsers | 43
+|Name|Value|Note
+|-|-|-|
+Administrator|0
+**Container group**|-|-
+Containers|1
+SeeContainers|11
+RenameContainer|12
+StartContainer|13
+RestartContainer|14
+KillContainer|15
+StopContainer|16
+RemoveContainer|17
+SeeLogs|18
+Resource|19
+PruneContainer|110
+SeeContainerRaw|111
+InspectContainer|112
+ExecuteCommand|113
+LsContainer|114
+CatContainer|115
+DownloadContainer|116|Download a file or a folder not entire container :D
+**Image group**|-|-
+Images|2
+SeeImages|21
+DeleteImage|22
+PruneImage|23
+**Volume group**|-|-
+Volumes|3
+SeeVolumes|31
+LsVolume|32
+CatVolume|33
+DownloadVolume|34
+DeleteVolume|35|Like `DownloadContainer`, this is for downloading a file or a folder not image
+PruneVolume|36
+**Network group**|-|Comming soon
+Networks|4
+**Role group**|-|-
+Roles|8
+SeeRoles|81
+CreateRole|82
+GrantRoles|83
+UpdateRole|84
+DeleteRole|85
+SeePermissions|86
+**User group**|-|-
+Users|9
+SeeUsers|91
+UpdateUsers|92
+DeleteUsers|93
 
 ### 2. How permission system work ?
 
