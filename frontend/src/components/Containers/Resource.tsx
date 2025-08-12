@@ -27,7 +27,7 @@ export default function () {
 
     async function getResourceUsage() {
         try {
-            const data = await api.get("/docker/resource", {
+            const data = await api.get("/docker/container/resource", {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }

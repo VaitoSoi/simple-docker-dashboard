@@ -1,6 +1,7 @@
+import traceback
 from asyncio import to_thread
-from queue import Empty
-from typing import Annotated, Any, Awaitable, Callable, Union, cast
+from queue import Empty, Queue
+from typing import Annotated, Any, Awaitable, Callable, TypeVar, Union, cast
 
 from docker.errors import APIError
 from fastapi import (
@@ -19,20 +20,23 @@ from fastapi.websockets import WebSocketState
 from lib.db import User
 from lib.docker import (
     ContainerPruneResponse,
+    DirEntry,
     FormattedContainer,
     FormattedImage,
     FormattedVolume,
     ImagePruneResponse,
     ResourceUsage,
     ResourceUsages,
-    VolumeEntry,
     VolumePruneResponse,
-    docker_exec_stream,
+    container_cat,
+    container_download,
+    container_ls,
     docker_logs_stream,
     get_container,
     get_container_raw,
     get_containers,
     get_containers_raw,
+    get_docker_exec,
     get_image,
     get_images,
     get_resource_usage,
@@ -57,7 +61,13 @@ from lib.docker import (
     volume_ls,
 )
 from lib.enums import Permission
-from lib.errors import ContainerNotFound, ImageNotFound, InvalidPath, VolumeNotFound
+from lib.errors import (
+    ContainerNotFound,
+    ImageNotFound,
+    InvalidPath,
+    TerminalNotFound,
+    VolumeNotFound,
+)
 from lib.response import HTTP_EXECEPTION_MESSAGE, MESSAGE_OK
 from lib.security import (
     check_user_has_permission,
@@ -69,10 +79,12 @@ API_ERROR = {400: HTTP_EXECEPTION_MESSAGE("<any api error message>")}
 
 router = APIRouter(prefix="/docker", tags=["docker"], responses={**API_ERROR})
 
+T = TypeVar("T")
+
 
 async def raise_if_api_error(
-    func: Callable[..., Awaitable[Any]], *args: ..., **kwargs: ...
-):
+    func: Callable[..., Awaitable[T]], *args: ..., **kwargs: ...
+) -> T:
     try:
         return await func(*args, **kwargs)
 
@@ -97,10 +109,16 @@ CONTAINER_NOT_FOUND = {
     )
 }
 
+container_router = APIRouter(
+    prefix="/container",
+    responses={**CONTAINER_NOT_FOUND}
+)
+
+
 
 async def container_raise_if_not_found(
-    func: Callable[..., Awaitable[Any]], *args: ..., **kwargs: ...
-):
+    func: Callable[..., Awaitable[T]], *args: ..., **kwargs: ...
+) -> T:
     try:
         return await raise_if_api_error(func, *args, **kwargs)
 
@@ -114,8 +132,8 @@ async def container_raise_if_not_found(
         )
 
 
-@router.get(
-    "/containers",
+@container_router.get(
+    "s",
     description="Get all containers",
     dependencies=[Depends(token_has_permission([Permission.SeeContainers]))],
     responses={200: {"model": list[FormattedContainer]}},
@@ -136,11 +154,11 @@ async def get_containers_api(
     return await raise_if_api_error(get_containers, show_all)
 
 
-@router.get(
-    "/container",
+@container_router.get(
+    "",
     description="Get specific container by ID, Short ID or Name",
     dependencies=[Depends(token_has_permission([Permission.SeeContainers]))],
-    responses={200: {"model": FormattedContainer}, **CONTAINER_NOT_FOUND},
+    responses={200: {"model": FormattedContainer}},
 )
 async def get_container_api(
     user: Annotated[User, Depends(get_user_from_token)], id: str, raw: bool = False
@@ -152,21 +170,21 @@ async def get_container_api(
     )
 
 
-@router.get(
+@container_router.get(
     "/inspect",
     description="Get specific container attributes by ID, Short ID or ",
-    dependencies=[Depends(token_has_permission([Permission.SeeContainers]))],
-    responses={200: {"model": dict[str, Any]}, **CONTAINER_NOT_FOUND},
+    dependencies=[Depends(token_has_permission([Permission.InspectContainer]))],
+    responses={200: {"model": dict[str, Any]}},
 )
 async def inspect_container_api(id: str):
     return await container_raise_if_not_found(inspect_container, id=id)
 
 
-@router.get(
+@container_router.get(
     "/top",
     description="Get specific container running process by ID, Short ID or Name",
-    dependencies=[Depends(token_has_permission([Permission.SeeContainers]))],
-    responses={200: {"model": list[dict[str, str]]}, **CONTAINER_NOT_FOUND},
+    dependencies=[Depends(token_has_permission([Permission.InspectContainer]))],
+    responses={200: {"model": list[dict[str, str]]}},
 )
 async def top_container_api(id: str):
     return (
@@ -178,74 +196,106 @@ async def top_container_api(id: str):
     )
 
 
-@router.post(
+@container_router.get(
+    "/ls",
+    description="List all entries in volume",
+    dependencies=[Depends(token_has_permission([Permission.LsVolume]))],
+    responses={200: {"model": list[DirEntry]}},
+)
+async def ls_container_api(id: str, path: str = ""):
+    return await container_raise_if_not_found(container_ls, id=id, path=path)
+
+
+@container_router.get(
+    "/cat",
+    description="Cat an entry in volume",
+    dependencies=[Depends(token_has_permission([Permission.CatVolume]))],
+    responses={200: {"model": list[DirEntry]}},
+)
+async def cat_container_api(id: str, path: str):
+    return await container_raise_if_not_found(container_cat, id=id, path=path)
+
+
+@container_router.get(
+    "/download",
+    description="Download an entry in volume",
+    dependencies=[Depends(token_has_permission([Permission.DownloadVolume]))],
+    responses={200: {}},
+)
+async def download_container_api(id: str, path: str):
+    return Response(
+        content=await container_raise_if_not_found(container_download, id=id, path=path),
+        media_type="application/octet-stream",
+    )
+
+@container_router.post(
     "/start",
     description="Start specific container by ID, Short ID or Name",
     dependencies=[Depends(token_has_permission([Permission.StartContainer]))],
-    responses={200: MESSAGE_OK(), **CONTAINER_NOT_FOUND},
+    responses={200: MESSAGE_OK()},
 )
 async def start_container_api(id: str):
     await container_raise_if_not_found(start_container, id=id)
     return JSONResponse({"message": "ok"})
 
 
-@router.post(
+@container_router.post(
     "/stop",
     description="Stop specific container by ID, Short ID or Name",
     dependencies=[Depends(token_has_permission([Permission.StopContainer]))],
-    responses={200: MESSAGE_OK(), **CONTAINER_NOT_FOUND},
+    responses={200: MESSAGE_OK()},
 )
 async def stop_container_api(id: str):
     await container_raise_if_not_found(stop_container, id=id)
     return JSONResponse({"message": "ok"})
 
 
-@router.post(
+@container_router.post(
     "/rename",
     description="Rename specific container by ID, Short ID or Name",
     dependencies=[Depends(token_has_permission([Permission.RenameContainer]))],
-    responses={200: MESSAGE_OK(), **CONTAINER_NOT_FOUND},
+    responses={200: MESSAGE_OK()},
 )
 async def rename_container_api(id: str, new_name: str):
     await container_raise_if_not_found(rename_container, id=id, new_name=new_name)
     return JSONResponse({"message": "ok"})
 
 
-@router.post(
+@container_router.post(
     "/restart",
     description="Restart specific container by ID, Short ID or Name",
     dependencies=[Depends(token_has_permission([Permission.RestartContainer]))],
-    responses={200: MESSAGE_OK(), **CONTAINER_NOT_FOUND},
+    responses={200: MESSAGE_OK()},
 )
 async def restart_container_api(id: str):
     await container_raise_if_not_found(restart_container, id=id)
     return JSONResponse({"message": "ok"})
 
 
-@router.post(
+@container_router.post(
     "/kill",
     description="Kill specific container by ID, Short ID or Name",
     dependencies=[Depends(token_has_permission([Permission.KillContainer]))],
-    responses={200: MESSAGE_OK(), **CONTAINER_NOT_FOUND},
+    responses={200: MESSAGE_OK()},
 )
 async def kill_container_api(id: str):
     await container_raise_if_not_found(kill_container, id=id)
     return JSONResponse({"message": "ok"})
 
 
-@router.delete(
-    "/container",
+@container_router.delete(
+    "",
     description="Remove specific container by ID, Short ID or Name",
     dependencies=[Depends(token_has_permission([Permission.RemoveContainer]))],
-    responses={200: MESSAGE_OK(), **CONTAINER_NOT_FOUND},
+    responses={200: MESSAGE_OK()},
 )
 async def remove_container_api(id: str):
     await container_raise_if_not_found(remove_container, id=id)
     return JSONResponse({"message": "ok"})
 
 
-@router.delete(
-    "/container/prune",
+@container_router.delete(
+    "/prune",
     description="Prune container",
     dependencies=[Depends(token_has_permission([Permission.PruneContainer]))],
     responses={200: {"model": ContainerPruneResponse}},
@@ -254,7 +304,7 @@ async def prune_container_api():
     return await raise_if_api_error(prune_container)
 
 
-@router.websocket("/logs")
+@container_router.websocket("/logs")
 async def get_container_logs_api(
     ws: WebSocket,
     id: Annotated[str, Query()],
@@ -293,46 +343,71 @@ async def get_container_logs_api(
         log_stream.close()
 
 
-@router.websocket("/exec")
+@container_router.websocket("/exec")
 async def container_exec_api(
     ws: WebSocket,
     id: Annotated[str, Query()],
     token: Annotated[str, Query()],
-    cmd: Annotated[str | None, Query()] = None,
 ):
-    check_user_has_permission(get_user_from_token(token), [Permission.SeeLogs])
-
-    log_queue, log_stream = await container_raise_if_not_found(
-        docker_exec_stream, id, cmd
-    )
-
-    await ws.accept()
     try:
-        while ws.application_state == WebSocketState.CONNECTING:
-            ...
+        check_user_has_permission(get_user_from_token(token), [Permission.SeeLogs])
 
-        while ws.application_state == WebSocketState.CONNECTED:
-            try:
-                log = await to_thread(log_queue.get, timeout=1)
-            except Empty:
-                await ws.send_text("SimpleDockerDashboard_Ping")
-                continue
+        input = Queue[bytes]()
 
-            if log:
-                if log == "SimpleDockerDashboard_EOL":
-                    log_stream.close()
+        try:
+            output, event, task = await container_raise_if_not_found(
+                get_docker_exec, id=id, input=input
+            )
+
+        except TerminalNotFound:
+            raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED)
+
+        await ws.accept()
+
+        def close():
+            event.set()
+            task.cancel()
+
+        try:
+            while ws.application_state == WebSocketState.CONNECTING:
+                ...
+
+            while ws.application_state == WebSocketState.CONNECTED:
+                data = await ws.receive_json()
+                str_command: str | None = data["command"]
+                if str_command is None:
+                    continue
+
+                str_command = str_command.rstrip("\n")
+
+                try:
+                    byte_command = bytes.fromhex(str_command)
+
+                except ValueError:
+                    byte_command = str_command.encode()
+
+                await to_thread(input.put, byte_command)
+
+                while True:
+                    try:
+                        resp = await to_thread(output.get, timeout=5)
+                    except Empty:
+                        await ws.send_json({})
+                        continue
+
+                    await ws.send_json(resp.model_dump())
                     break
 
-                await ws.send_text(log)
+            close()
+            await ws.close()
+        except (WebSocketDisconnect, WebSocketException):
+            close()
 
-        log_stream.close()
-        await ws.close()
-
-    except (WebSocketDisconnect, WebSocketException):
-        log_stream.close()
+    except Exception:
+        print(traceback.format_exc())
 
 
-@router.get(
+@container_router.get(
     "/resource",
     description="Get resource usage by Docker and system",
     dependencies=[Depends(token_has_permission([Permission.Resource]))],
@@ -359,10 +434,15 @@ IMAGE_NOT_FOUND = {
     )
 }
 
+image_router = APIRouter(
+    prefix="/image",
+    responses={**IMAGE_NOT_FOUND}
+)
+
 
 async def image_raise_if_not_found(
-    func: Callable[..., Awaitable[Any]], *args: ..., **kwargs: ...
-):
+    func: Callable[..., Awaitable[T]], *args: ..., **kwargs: ...
+) -> T:
     try:
         return await raise_if_api_error(func, *args, **kwargs)
 
@@ -376,8 +456,8 @@ async def image_raise_if_not_found(
         )
 
 
-@router.get(
-    "/images",
+@image_router.get(
+    "s",
     description="Get all images",
     dependencies=[Depends(token_has_permission([Permission.SeeImages]))],
     responses={200: {"model": list[FormattedImage]}},
@@ -386,29 +466,29 @@ async def get_images_api():
     return await raise_if_api_error(get_images)
 
 
-@router.get(
-    "/image",
+@image_router.get(
+    "",
     description="Get specific image by ID or Short ID",
     dependencies=[Depends(token_has_permission([Permission.SeeImages]))],
-    responses={200: {"model": FormattedContainer}, **IMAGE_NOT_FOUND},
+    responses={200: {"model": FormattedContainer}},
 )
 async def get_image_api(id: str):
     return await image_raise_if_not_found(get_image, id=id)
 
 
-@router.delete(
-    "/image",
+@image_router.delete(
+    "",
     description="Remove specific image by ID or Short ID",
     dependencies=[Depends(token_has_permission([Permission.DeleteImage]))],
-    responses={200: MESSAGE_OK(), **IMAGE_NOT_FOUND},
+    responses={200: MESSAGE_OK()},
 )
 async def delete_image_api(id: str):
     await image_raise_if_not_found(remove_image, id=id)
     return JSONResponse({"message": "ok"})
 
 
-@router.delete(
-    "/image/prune",
+@image_router.delete(
+    "/prune",
     description="Prune image",
     dependencies=[Depends(token_has_permission([Permission.PruneImage]))],
     responses={200: {"model": ImagePruneResponse}},
@@ -433,10 +513,14 @@ INVALID_PATH = {
     )
 }
 
+volume_router = APIRouter(
+    prefix="/volume",
+    responses={**VOLUME_NOT_FOUND, **INVALID_PATH}
+)
 
 async def volume_raise_if_not_found(
-    func: Callable[..., Awaitable[Any]], *args: ..., **kwargs: ...
-):
+    func: Callable[..., Awaitable[T]], *args: ..., **kwargs: ...
+) -> T:
     try:
         return await raise_if_api_error(func, *args, **kwargs)
 
@@ -451,8 +535,8 @@ async def volume_raise_if_not_found(
 
 
 async def volume_raise_if_invalid(
-    func: Callable[..., Awaitable[Any]], *args: ..., **kwargs: ...
-):
+    func: Callable[..., Awaitable[T]], *args: ..., **kwargs: ...
+) -> T:
     try:
         return await volume_raise_if_not_found(func, *args, **kwargs)
 
@@ -466,8 +550,8 @@ async def volume_raise_if_invalid(
         )
 
 
-@router.get(
-    "/volumes",
+@volume_router.get(
+    "s",
     description="Get all volume",
     dependencies=[Depends(token_has_permission([Permission.SeeVolumes]))],
     responses={200: {"model": list[FormattedVolume]}},
@@ -476,41 +560,41 @@ async def get_volumes_api():
     return await get_volumes()
 
 
-@router.get(
-    "/volume",
+@volume_router.get(
+    "",
     description="Get specific volume by ID, Short ID or Name",
     dependencies=[Depends(token_has_permission([Permission.SeeVolumes]))],
-    responses={200: {"model": FormattedVolume}, **VOLUME_NOT_FOUND},
+    responses={200: {"model": FormattedVolume}},
 )
 async def get_volume_api(id: str):
     return await volume_raise_if_not_found(get_volume, id=id)
 
 
-@router.get(
+@volume_router.get(
     "/ls",
     description="List all entries in volume",
     dependencies=[Depends(token_has_permission([Permission.LsVolume]))],
-    responses={200: {"model": list[VolumeEntry]}, **VOLUME_NOT_FOUND, **INVALID_PATH},
+    responses={200: {"model": list[DirEntry]}},
 )
 async def ls_volume_api(id: str, path: str = ""):
     return await volume_raise_if_invalid(volume_ls, id=id, path=path)
 
 
-@router.get(
+@volume_router.get(
     "/cat",
     description="Cat an entry in volume",
     dependencies=[Depends(token_has_permission([Permission.CatVolume]))],
-    responses={200: {"model": list[VolumeEntry]}, **VOLUME_NOT_FOUND, **INVALID_PATH},
+    responses={200: {"model": list[DirEntry]}},
 )
 async def cat_volume_api(id: str, path: str):
     return await volume_raise_if_invalid(volume_cat, id=id, path=path)
 
 
-@router.get(
+@volume_router.get(
     "/download",
     description="Download an entry in volume",
-    dependencies=[Depends(token_has_permission([Permission.CatVolume]))],
-    responses={200: {}, **VOLUME_NOT_FOUND, **INVALID_PATH},
+    dependencies=[Depends(token_has_permission([Permission.DownloadVolume]))],
+    responses={200: {}},
 )
 async def download_volume_api(id: str, path: str):
     return Response(
@@ -519,22 +603,27 @@ async def download_volume_api(id: str, path: str):
     )
 
 
-@router.delete(
-    "/volume",
+@volume_router.delete(
+    "",
     description="Remove specific volume by ID or Short ID",
     dependencies=[Depends(token_has_permission([Permission.DeleteVolume]))],
-    responses={200: MESSAGE_OK(), **VOLUME_NOT_FOUND},
+    responses={200: MESSAGE_OK()},
 )
 async def delete_volume_api(id: str):
     await volume_raise_if_not_found(remove_volume, id=id)
     return JSONResponse({"message": "ok"})
 
 
-@router.delete(
-    "/volume/prune",
+@volume_router.delete(
+    "/prune",
     description="Prune volume",
     dependencies=[Depends(token_has_permission([Permission.PruneVolume]))],
     responses={200: {"model": VolumePruneResponse}},
 )
 async def prune_volume_api():
     return await raise_if_api_error(prune_volumes)
+
+
+router.include_router(container_router)
+router.include_router(image_router)
+router.include_router(volume_router)

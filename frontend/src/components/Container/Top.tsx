@@ -24,7 +24,7 @@ export default function ({ id }: { id: string }) {
     useEffect(() => void getData(), []);
     async function getData() {
         try {
-            const response = await api.get<Top[]>(`/docker/top?id=${id}`, {
+            const response = await api.get<Top[]>(`/docker/container/top?id=${id}`, {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }

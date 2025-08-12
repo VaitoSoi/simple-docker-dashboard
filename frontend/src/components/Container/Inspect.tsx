@@ -9,7 +9,7 @@ export default function ({ id }: { id: string }) {
     useEffect(() => void getInfo(), []);
     async function getInfo() {
         try {
-            const response = await api.get<Record<string, any>>(`/docker/inspect?id=${id}`, {
+            const response = await api.get<Record<string, any>>(`/docker/container/inspect?id=${id}`, {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }

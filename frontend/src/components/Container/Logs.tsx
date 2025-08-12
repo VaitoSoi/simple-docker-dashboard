@@ -82,7 +82,7 @@ export default function ({ id, reload }: { id: string, reload: boolean }) {
     useEffect(() => {
         if (!allowToSee) return;
         setUrl(
-            `${baseUrl}/docker/logs` +
+            `${baseUrl}/docker/container/logs` +
             `?id=${id}` +
             `&token=${token}`
         );
@@ -97,7 +97,7 @@ export default function ({ id, reload }: { id: string, reload: boolean }) {
         setLogs([]);
         setTimeout(
             () => setUrl(
-                `${baseUrl}/docker/logs` +
+                `${baseUrl}/docker/container/logs` +
                 `?id=${id}` +
                 `&token=${token}`
             )

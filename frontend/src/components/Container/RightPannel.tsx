@@ -37,7 +37,7 @@ export default function ({ id, reloadLogsState }: { id: string, reloadLogsState:
     async function getMetrics() {
         if (!isRunning) return;
         try {
-            const response = await api.get<{ cpu: number, memory: number }>(`/docker/resource?id=${id}`, {
+            const response = await api.get<{ cpu: number, memory: number }>(`/docker/container/resource?id=${id}`, {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }
@@ -84,7 +84,7 @@ export default function ({ id, reloadLogsState }: { id: string, reloadLogsState:
 
     const start = (id: string) => runCommand(async () => {
         info("Starting container...");
-        await api.post(`/docker/start?id=${id}`, {}, {
+        await api.post(`/docker/container/start?id=${id}`, {}, {
             headers: {
                 Authorization: `Bearer ${token}`
             }
@@ -96,7 +96,7 @@ export default function ({ id, reloadLogsState }: { id: string, reloadLogsState:
 
     const stop = (id: string) => runCommand(async () => {
         info("Stopping container...");
-        await api.post(`/docker/stop?id=${id}`, {}, {
+        await api.post(`/docker/container/stop?id=${id}`, {}, {
             headers: {
                 Authorization: `Bearer ${token}`
             }
@@ -107,7 +107,7 @@ export default function ({ id, reloadLogsState }: { id: string, reloadLogsState:
 
     const kill = (id: string) => runCommand(async () => {
         info("Killing container...");
-        await api.post(`/docker/kill?id=${id}`, {}, {
+        await api.post(`/docker/container/kill?id=${id}`, {}, {
             headers: {
                 Authorization: `Bearer ${token}`
             }
@@ -118,7 +118,7 @@ export default function ({ id, reloadLogsState }: { id: string, reloadLogsState:
 
     const restart = (id: string) => runCommand(async () => {
         info("Restarting container...");
-        await api.post(`/docker/restart?id=${id}`, {}, {
+        await api.post(`/docker/container/restart?id=${id}`, {}, {
             headers: {
                 Authorization: `Bearer ${token}`
             }

@@ -106,7 +106,7 @@ export default function () {
         try {
             setIsRunningCommand(true);
             info("Starting container...");
-            await api.post(`/docker/start?id=${id}`, {}, {
+            await api.post(`/docker/container/start?id=${id}`, {}, {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }
@@ -122,7 +122,7 @@ export default function () {
         try {
             info("Stopping container...");
             setIsRunningCommand(true);
-            await api.post(`/docker/stop?id=${id}`, {}, {
+            await api.post(`/docker/container/stop?id=${id}`, {}, {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }
@@ -138,7 +138,7 @@ export default function () {
         try {
             info("Killing container...");
             setIsRunningCommand(true);
-            await api.post(`/docker/kill?id=${id}`, {}, {
+            await api.post(`/docker/container/kill?id=${id}`, {}, {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }
@@ -154,7 +154,7 @@ export default function () {
         try {
             info("Restarting container...");
             setIsRunningCommand(true);
-            await api.post(`/docker/restart?id=${id}`, {}, {
+            await api.post(`/docker/container/restart?id=${id}`, {}, {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }

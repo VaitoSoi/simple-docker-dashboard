@@ -57,7 +57,7 @@ export default function ({ id }: { id: string }) {
         try {
             if (viewingFile) {
                 const response = await api.get<string>(
-                    `/docker/cat?id=${id}&path=${currentPath}`,
+                    `/docker/volume/cat?id=${id}&path=${currentPath}`,
                     {
                         headers: {
                             Authorization: `Bearer ${token}`
@@ -72,7 +72,7 @@ export default function ({ id }: { id: string }) {
                 setFileContent(content);
             } else {
                 const response = await api.get<VolumeEntryAPI[]>(
-                    `/docker/ls?id=${id}&path=${currentPath}`,
+                    `/docker/volume/ls?id=${id}&path=${currentPath}`,
                     {
                         headers: {
                             Authorization: `Bearer ${token}`
@@ -101,7 +101,7 @@ export default function ({ id }: { id: string }) {
 
         try {
             const response = await api.get(
-                `/docker/download?id=${id}&path=${path}`,
+                `/docker/volume/download?id=${id}&path=${path}`,
                 {
                     headers: {
                         Authorization: `Bearer ${token}`
@@ -295,8 +295,4 @@ export default function ({ id }: { id: string }) {
                     </Table>
             }</div>
     }</>;
-}
-
-function useSelector(arg0: any) {
-    throw new Error("Function not implemented.");
 }
