@@ -20,18 +20,9 @@ import { Button } from "../ui/button";
 import { error, info } from "@/hooks/toasts";
 import { Checkbox } from "../ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import type { DirEntryAPI } from "@/lib/typing";
 
-interface VolumeEntryAPI {
-    name: string,
-    type:
-    | "directory"
-    | "file"
-    | "executable"
-    | "sock"
-    | "symlink"
-    | "other"
-}
-interface VolumeEntry extends VolumeEntryAPI {
+interface DirEntry extends DirEntryAPI {
     isGoBack?: true
 }
 
@@ -39,7 +30,7 @@ export default function ({ id }: { id: string }) {
     const token = localStorage.getItem("token");
 
     const [currentPath, setCurrentPath] = useState<string>("");
-    const [entries, setEntries] = useState<VolumeEntry[]>([]);
+    const [entries, setEntries] = useState<DirEntry[]>([]);
 
     const [viewingFile, setViewingFile] = useState<boolean>(false);
     const [fileTooBig, setFileTooBig] = useState<boolean>(false);
@@ -71,7 +62,7 @@ export default function ({ id }: { id: string }) {
                 }
                 setFileContent(content);
             } else {
-                const response = await api.get<VolumeEntryAPI[]>(
+                const response = await api.get<DirEntryAPI[]>(
                     `/docker/volume/ls?id=${id}&path=${currentPath}`,
                     {
                         headers: {
@@ -79,10 +70,10 @@ export default function ({ id }: { id: string }) {
                         }
                     }
                 );
-                const entries: VolumeEntry[] = ([
+                const entries: DirEntry[] = ([
                     (currentPath != "" ? { name: "..", type: "", isGoBack: true } : undefined),
                     ...response.data.map(entry => ({ ...entry, name: entry.name + (entry.type == "directory" ? "/" : "") }))
-                ].filter(val => !!val)) as VolumeEntry[];
+                ].filter(val => !!val)) as DirEntry[];
                 setEntries(entries);
             }
         } catch (e) {
@@ -127,7 +118,7 @@ export default function ({ id }: { id: string }) {
         }
     }
 
-    const table = useReactTable<VolumeEntry>({
+    const table = useReactTable<DirEntry>({
         columns: [
             {
                 id: "name",
