@@ -16,7 +16,11 @@ class Permission(Enum):
     Resource = 19
     PruneContainer = 110
     SeeContainerRaw = 111
-    ExecuteCommand = 112
+    InspectContainer = 112
+    ExecuteCommand = 113
+    LsContainer = 114
+    CatContainer = 115
+    DownloadContainer = 116
 
     Images = 2
     SeeImages = 21
@@ -27,8 +31,9 @@ class Permission(Enum):
     SeeVolumes = 31
     LsVolume = 32
     CatVolume = 33
-    DeleteVolume = 34
-    PruneVolume = 35
+    DownloadVolume = 34
+    DeleteVolume = 35
+    PruneVolume = 36
 
     Networks = 4
     
@@ -48,7 +53,10 @@ class Permission(Enum):
 
 default_permission = [
     Permission.SeeContainers,
+    Permission.SeeContainerRaw,
+    Permission.InspectContainer,
+    Permission.Resource,
     Permission.SeeLogs,
     Permission.SeeImages,
-    Permission.Resource,
+    Permission.SeeVolumes,
 ]
