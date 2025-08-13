@@ -59,7 +59,7 @@ export default function () {
                 }</div>
             </div>
             : <div className="h-screen w-screen">
-                <div className="h-1/4 mt-10 w-full flex">
+                <div className="h-1/4 pt-10 w-full flex">
                     <div className="flex ml-20 mt-auto mb-auto">
                         <Container className="w-40 h-40" color="#006eff" strokeWidth={1} />
                         <div className="mt-7 ml-5">

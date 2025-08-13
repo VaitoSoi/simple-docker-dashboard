@@ -20,7 +20,7 @@ export function WithToast({ children }: PropsWithChildren) {
 }
 
 export function Combine({ children }: PropsWithChildren) {
-    return <div className="flex h-full w-full">
+    return <div className="flex h-screen w-screen">
         <Navigation />
         <Toaster />
         {children}

@@ -63,7 +63,7 @@ export function List() {
                         }
                     </div>
                 </div>
-                : <div className="w-full h-full mt-20 ml-10 mr-10 flex flex-col">
+                : <div className="w-full h-full pt-20 pl-10 pr-10 flex flex-col">
                     <div className="flex ml-3 items-center">
                         <Database className="w-40 h-40" color="#006eff" strokeWidth={1} />
                         <div className="mt-7 ml-5">

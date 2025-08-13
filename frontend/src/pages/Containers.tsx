@@ -14,7 +14,7 @@ export function List() {
     const navigator = useNavigate();
 
     const token = localStorage.getItem("token");
-    const [allowToSee, setAllowToSee] = useState<boolean>(false);
+    const [allowToSee, setAllowToSee] = useState<boolean>(null);
     const [errored, setErrored] = useState<boolean>(false);
 
     async function getPermission() {
@@ -64,7 +64,7 @@ export function List() {
                         }
                     </div>
                 </div>
-                : <div className="w-full h-9/10 mt-20 ml-10 flex flex-col">
+                : <div className="w-full hfull pt-20 pl-10 flex flex-col">
                     <div className="flex ml-3 items-center">
                         <Container className="w-40 h-40" color="#006eff" strokeWidth={1} />
                         <div className="mt-7 ml-5">

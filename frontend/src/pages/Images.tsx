@@ -13,7 +13,7 @@ export function List() {
     const navigator = useNavigate();
 
     const token = localStorage.getItem("token");
-    const [allowToSee, setAllowToSee] = useState<boolean>(false);
+    const [allowToSee, setAllowToSee] = useState<boolean>(null);
     const [errored, setErrored] = useState<boolean>(false);
 
     async function getPermission() {
@@ -50,20 +50,17 @@ export function List() {
     return (
         <>{
             !allowToSee || errored
-                ? <div className="flex w-full h-full">
-                    <div className="m-auto">
-                        {
-                            errored
-                                ? <HuhError />
-                                : allowToSee === null
-                                    ? <Loading />
-                                    : allowToSee === false
-                                        ? <Forbidden />
-                                        : <Huh />
-                        }
-                    </div>
+                ? <div className="w-full h-full">{
+                    errored
+                        ? <HuhError />
+                        : allowToSee === null
+                            ? <Loading />
+                            : allowToSee === false
+                                ? <Forbidden />
+                                : <Huh />
+                }
                 </div>
-                : <div className="w-full h-full mt-20 ml-10 mr-10 flex flex-col">
+                : <div className="w-full h-full pt-20 pl-10 pr-10 flex flex-col">
                     <div className="flex ml-3 items-center">
                         <Scroll className="w-40 h-40" color="#006eff" strokeWidth={1} />
                         <div className="mt-7 ml-5">
@@ -71,9 +68,7 @@ export function List() {
                             <p className="text-2xl mt-1 ml-1">View all your images</p>
                         </div>
                     </div>
-                    <div className="flex flex-col">
-                        <ListImage />
-                    </div>
+                    <ListImage />
                 </div>
         }</>
     );

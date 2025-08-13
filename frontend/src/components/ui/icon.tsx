@@ -12,9 +12,11 @@ export function Whale({ ...props }: ComponentProps<"img">) {
 }
 
 export function Loading({ className, ...props }: ComponentProps<"div">) {
-    return <div className={cn("flex flex-col items-center", className)} {...props}>
-        <Whale className="size-50 animate-spin" />
-        <p className="text-4xl mt-15">Loading...</p>
+    return <div className={cn("w-full h-full flex", className)} {...props}>
+        <div className="m-auto flex flex-col items-center">
+            <Whale className="size-50 animate-spin" />
+            <p className="text-4xl mt-15">Loading...</p>
+        </div>
     </div>;
 }
 

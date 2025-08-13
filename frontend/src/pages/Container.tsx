@@ -17,10 +17,10 @@ export default function () {
     const token = localStorage.getItem('token');
     const navigator = useNavigate();
 
-    const [allowToSee, setAllowToSee] = useState<boolean>(false);
+    const [allowToSee, setAllowToSee] = useState<boolean>(null);
 
     const [name, setName] = useState<string>("");
-    const [containerExist, setContainerExist] = useState<boolean>(null);
+    const [containerExist, setContainerExist] = useState<boolean>(false);
 
     const [errored, setErrored] = useState<boolean>(false);
 
@@ -47,8 +47,9 @@ export default function () {
                 else if (e.status == 401)
                     return navigator("/login");
 
-                else if (e.status == 403)
+                else if (e.status == 403) {
                     return setAllowToSee(false);
+                }
             }
 
             console.error(e);
@@ -66,10 +67,10 @@ export default function () {
                 <div className="m-auto flex flex-col items-center">{
                     errored
                         ? <HuhError />
-                        : !allowToSee
-                            ? <Forbidden />
-                            : containerExist === null
-                                ? <Loading />
+                        : allowToSee === null
+                            ? <Loading />
+                            : !allowToSee
+                                ? <Forbidden />
                                 : <>
                                     <HuhWhale className="size-50" />
                                     <p className="text-3xl">Container <span className="font-bold">{id}</span> not exists</p>
