@@ -50,3 +50,10 @@ export interface DirEntryAPI {
     | "symlink"
     | "other"
 }
+
+export interface APINetwork {
+    id: string,
+    name: string,
+    short_id: string,
+    containers: string[]
+}

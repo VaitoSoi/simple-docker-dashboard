@@ -7,7 +7,7 @@ import {
     SheetTitle,
     SheetTrigger,
 } from "@/components/ui/sheet";
-import { Container, Database, Home, LogOut, PanelLeftOpen, Scroll, Settings } from "lucide-react";
+import { Container, Database, Home, LogOut, Network, PanelLeftOpen, Scroll, Settings } from "lucide-react";
 import type { ComponentProps } from "react";
 import { useNavigate } from "react-router";
 import { Button } from "../ui/button";
@@ -52,6 +52,10 @@ export default function () {
                     <SheetItem onClick={() => navigatorWithTransition("/volumes")}>
                         <Database className="size-8" />
                         <p>Volumes</p>
+                    </SheetItem>
+                    <SheetItem onClick={() => navigatorWithTransition("/networks")}>
+                        <Network className="size-8" />
+                        <p>Networks</p>
                     </SheetItem>
                     <SheetItem onClick={() => navigatorWithTransition("/settings?tab=user")}>
                         <Settings className="size-8" />
