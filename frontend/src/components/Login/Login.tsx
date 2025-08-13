@@ -16,6 +16,7 @@ import type { LoginResponse } from "@/lib/typing";
 import { AxiosError } from "axios";
 import { Label } from "../ui/label";
 import { UsernameRegex } from "@/lib/enums";
+import { Whale } from "../ui/icon";
 
 export default function () {
     const navigator = useNavigate();
@@ -120,12 +121,12 @@ export default function () {
     }
 
     return <div className="h-150 w-250 m-auto rounded-2xl border-2 border-gray-400 flex flex-row relative overflow-hidden">
-        {/* Left Card - Info/Placeholder Card */}
+        {/* Info/Placeholder Card */}
         <div className={`w-1/2 h-full flex flex-col absolute transition-all duration-700 ease-in-out border z-20 bg-white ${isOnLoginPage
             ? 'translate-x-0 rounded-tr-none rounded-br-none rounded-tl-2xl rounded-bl-2xl'
             : 'translate-x-full rounded-tl-none rounded-bl-none rounded-tr-2xl rounded-br-2xl'}`}>
             <div className="flex flex-col m-auto items-center gap-2">
-                <p className="text-8xl">🐋</p>
+                <Whale className="size-25" />
                 <p className="text-3xl font-semibold">Simple Docker Dashboard</p>
                 <p className="text-lg text-center w-10/12">This is a very simple Docker Dashboard. Allow you to monitor your Docker container, also view your container logs</p>
             </div>
