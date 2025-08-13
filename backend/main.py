@@ -17,9 +17,9 @@ async def lifespan(app: FastAPI):
     ensure_default()
     images = await get_images()
     try:
-        if all([image.tags[0] != "busybox" for image in images]):
+        if all([image.tags[0] != "busybox" for image in images if len(image.tags)]):
             await to_thread(client.images.pull, "busybox")
-        if all([image.tags[0] != "javieraviles/zip" for image in images]):
+        if all([image.tags[0] != "javieraviles/zip" for image in images  if len(image.tags)]):
             await to_thread(client.images.pull, "javieraviles/zip")
     except APIError:
         pass
