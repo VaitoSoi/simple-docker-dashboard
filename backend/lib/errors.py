@@ -22,6 +22,9 @@ class TerminalNotFound(NotFound):
 class CommandNotFound(NotFound):
     ...
 
+class NetworkNotFound(NotFound):
+    ...
+
 
 
 class MissingError(Exception):

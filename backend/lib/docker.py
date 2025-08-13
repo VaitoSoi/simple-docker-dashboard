@@ -14,6 +14,7 @@ from docker.constants import STREAM_HEADER_SIZE_BYTES
 from docker.errors import ImageNotFound, NotFound
 from docker.models.containers import Container
 from docker.models.images import Image
+from docker.models.networks import Network
 from docker.models.volumes import Volume
 from pydantic import BaseModel
 
@@ -22,6 +23,7 @@ from lib.errors import (
     ContainerNotFound,
     ImageNotFound as _ImageNotFound,
     InvalidPath,
+    NetworkNotFound,
     TerminalNotFound,
     VolumeNotFound,
 )
@@ -42,6 +44,10 @@ class DirEntry(BaseModel):
     )
 
 
+class PruneResponse(BaseModel):
+    SpaceReclaimed: int
+
+
 """
 CONTAINER
 """
@@ -57,9 +63,8 @@ class FormattedContainer(BaseModel):
     ports: List[str]
 
 
-class ContainerPruneResponse(BaseModel):
+class ContainerPruneResponse(PruneResponse):
     ContainersDeleted: list[str] | None
-    SpaceReclaimed: int
 
 
 def _format_container(container: Container) -> FormattedContainer:
@@ -179,8 +184,8 @@ async def top_container(id: str) -> List[Dict[str, str]] | None:
     return output
 
 
-async def prune_container() -> ContainerPruneResponse:
-    return ContainerPruneResponse(**(await to_thread(client.containers.prune)))  # type: ignore
+async def prune_container(filter: dict[str, Any] = {}) -> ContainerPruneResponse:
+    return ContainerPruneResponse(**(await to_thread(client.containers.prune, filter)))  # type: ignore
 
 
 def _stream_logs(log_queue: Queue[str], log_stream: Generator[bytes]):
@@ -386,13 +391,13 @@ async def container_download(id: str, path: str) -> bytes:
     if entry.type == "directory":
         zip_path = os.path.join(base_path, f"{archive_id}")
         shutil.make_archive(zip_path, "zip", extract_dir)
-        
+
         zip_path += ".zip"
         with open(zip_path, "rb") as file:
             response = file.read()
 
         os.remove(zip_path)
-    
+
     else:
         target_path = os.path.join(base_path, archive_id, target)
         with open(target_path, "rb") as file:
@@ -401,7 +406,6 @@ async def container_download(id: str, path: str) -> bytes:
     os.remove(tar_path)
     shutil.rmtree(extract_dir)
     return response
-
 
 
 """
@@ -416,9 +420,8 @@ class FormattedImage(BaseModel):
     # hub_url: str
 
 
-class ImagePruneResponse(BaseModel):
+class ImagePruneResponse(PruneResponse):
     ImagesDeleted: list[dict[str, str]] | None
-    SpaceReclaimed: int
 
 
 async def _format_image(image: Image) -> FormattedImage:
@@ -478,9 +481,11 @@ async def remove_image(id: str):
         raise _ImageNotFound()
 
 
-async def prune_images(dangling: bool = True) -> ImagePruneResponse:
+async def prune_images(
+    dangling: bool = True, filter: dict[str, Any] = {}
+) -> ImagePruneResponse:
     return ImagePruneResponse(
-        **(await to_thread(client.images.prune, {"dangling": dangling}))  # type: ignore
+        **(await to_thread(client.images.prune, {"dangling": dangling, **filter}))  # type: ignore
     )
 
 
@@ -642,9 +647,8 @@ class FormattedVolume(BaseModel):
     name: str
 
 
-class VolumePruneResponse(BaseModel):
+class VolumePruneResponse(PruneResponse):
     VolumesDeleted: list[Any]
-    SpaceReclaimed: int
 
 
 def format_volume(volume: Volume) -> FormattedVolume:
@@ -790,5 +794,73 @@ async def remove_volume(id: str):
     await to_thread(volume.remove)
 
 
-async def prune_volumes():
-    return VolumePruneResponse(**(await to_thread(client.volumes.prune)))
+async def prune_volumes(filter: dict[str, Any] = {}):
+    return VolumePruneResponse(**(await to_thread(client.volumes.prune, filter)))
+
+
+"""
+NETWORKS
+"""
+
+
+class FormattedNetwork(BaseModel):
+    id: str
+    short_id: str
+    name: str
+    containers: list[str]
+
+
+class NetworkPruneResponse(BaseModel):
+    NetworksDeleted: list[str] | None
+
+
+def format_network(network: Network):
+    return FormattedNetwork(
+        id=network.id or network.short_id,
+        short_id=network.short_id,
+        name=network.name or network.short_id,
+        containers=[
+            container.name or container.short_id for container in network.containers
+        ],
+    )
+
+
+async def get_networks():
+    return sorted(
+        [
+            format_network(network)
+            for network in await to_thread(client.networks.list)  # type: ignore
+        ],
+        key=lambda network: network.id,
+    )
+
+
+async def _get_network(id: str):
+    try:
+        return await to_thread(client.networks.get, id)
+
+    except NotFound:
+        raise NetworkNotFound()
+
+
+async def get_network(id: str):
+    return format_network(await _get_network(id))
+
+async def connect_container(network_id: str, container_id: str):
+    network = await _get_network(network_id)
+    await _get_container(container_id)
+    await to_thread(network.connect, container_id) # type: ignore
+
+async def disconnect_container(network_id: str, container_id: str, force: bool = False):
+    network = await _get_network(network_id)
+    await _get_container(container_id)
+    await to_thread(network.disconnect, container_id, force)
+
+
+async def remove_network(id: str):
+    network = await _get_network(id)
+    await to_thread(network.remove)
+
+
+async def prune_network():
+    return NetworkPruneResponse(**(await to_thread(client.networks.prune)))

@@ -23,14 +23,17 @@ from lib.docker import (
     DirEntry,
     FormattedContainer,
     FormattedImage,
+    FormattedNetwork,
     FormattedVolume,
     ImagePruneResponse,
     ResourceUsage,
     ResourceUsages,
     VolumePruneResponse,
+    connect_container,
     container_cat,
     container_download,
     container_ls,
+    disconnect_container,
     docker_logs_stream,
     get_container,
     get_container_raw,
@@ -39,6 +42,8 @@ from lib.docker import (
     get_docker_exec,
     get_image,
     get_images,
+    get_network,
+    get_networks,
     get_resource_usage,
     get_resource_usages,
     get_volume,
@@ -47,9 +52,11 @@ from lib.docker import (
     kill_container,
     prune_container,
     prune_images,
+    prune_network,
     prune_volumes,
     remove_container,
     remove_image,
+    remove_network,
     remove_volume,
     rename_container,
     restart_container,
@@ -65,6 +72,7 @@ from lib.errors import (
     ContainerNotFound,
     ImageNotFound,
     InvalidPath,
+    NetworkNotFound,
     TerminalNotFound,
     VolumeNotFound,
 )
@@ -99,21 +107,19 @@ async def raise_if_api_error(
         )
 
 
+def HTTP_NOT_FOUND_WITH_ID(message: str):
+    return HTTP_EXECEPTION_MESSAGE(
+        message, ({"id": {"type": "string"}}, {"id": "string"})
+    )
+
+
 """
 CONTAINER
 """
 
-CONTAINER_NOT_FOUND = {
-    404: HTTP_EXECEPTION_MESSAGE(
-        "container not found", ({"id": {"type": "string"}}, {"id": "string"})
-    )
-}
+CONTAINER_NOT_FOUND = {404: HTTP_NOT_FOUND_WITH_ID("container not found")}
 
-container_router = APIRouter(
-    prefix="/container",
-    responses={**CONTAINER_NOT_FOUND}
-)
-
+container_router = APIRouter(prefix="/container", responses={**CONTAINER_NOT_FOUND})
 
 
 async def container_raise_if_not_found(
@@ -224,9 +230,12 @@ async def cat_container_api(id: str, path: str):
 )
 async def download_container_api(id: str, path: str):
     return Response(
-        content=await container_raise_if_not_found(container_download, id=id, path=path),
+        content=await container_raise_if_not_found(
+            container_download, id=id, path=path
+        ),
         media_type="application/octet-stream",
     )
+
 
 @container_router.post(
     "/start",
@@ -428,16 +437,9 @@ IMAGE
 """
 
 
-IMAGE_NOT_FOUND = {
-    404: HTTP_EXECEPTION_MESSAGE(
-        "image not found", ({"id": {"type": "string"}}, {"id": "string"})
-    )
-}
+IMAGE_NOT_FOUND = {404: HTTP_NOT_FOUND_WITH_ID("image not found")}
 
-image_router = APIRouter(
-    prefix="/image",
-    responses={**IMAGE_NOT_FOUND}
-)
+image_router = APIRouter(prefix="/image", responses={**IMAGE_NOT_FOUND})
 
 
 async def image_raise_if_not_found(
@@ -501,11 +503,7 @@ async def prune_image_api(dangling: bool = True):
 VOLUMES
 """
 
-VOLUME_NOT_FOUND = {
-    404: HTTP_EXECEPTION_MESSAGE(
-        "volume not found", ({"id": {"type": "string"}}, {"id": "string"})
-    )
-}
+VOLUME_NOT_FOUND = {404: HTTP_NOT_FOUND_WITH_ID("volume not found")}
 
 INVALID_PATH = {
     400: HTTP_EXECEPTION_MESSAGE(
@@ -514,9 +512,9 @@ INVALID_PATH = {
 }
 
 volume_router = APIRouter(
-    prefix="/volume",
-    responses={**VOLUME_NOT_FOUND, **INVALID_PATH}
+    prefix="/volume", responses={**VOLUME_NOT_FOUND, **INVALID_PATH}
 )
+
 
 async def volume_raise_if_not_found(
     func: Callable[..., Awaitable[T]], *args: ..., **kwargs: ...
@@ -624,6 +622,122 @@ async def prune_volume_api():
     return await raise_if_api_error(prune_volumes)
 
 
+"""
+NETWORKS
+"""
+
+NETWORK_NOT_FOUND = {404: HTTP_NOT_FOUND_WITH_ID("network not found")}
+
+network_router = APIRouter(prefix="/network", responses={**NETWORK_NOT_FOUND})
+
+
+async def network_raise_if_not_found(
+    func: Callable[..., Awaitable[T]], *args: ..., **kwargs: ...
+) -> T:
+    try:
+        return await raise_if_api_error(func, *args, **kwargs)
+
+    except NetworkNotFound:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "message": "network not found",
+                **({"id": kwargs["id"]} if "id" in kwargs else {}),
+            },
+        )
+
+
+@network_router.get(
+    "s",
+    description="Get all network",
+    dependencies=[Depends(token_has_permission([Permission.SeeNetwork]))],
+    responses={200: {"model": list[FormattedNetwork]}},
+)
+async def get_networks_api():
+    return await get_networks()
+
+
+@network_router.get(
+    "",
+    description="Get specific network by ID",
+    dependencies=[Depends(token_has_permission([Permission.SeeNetwork]))],
+    responses={200: {"model": FormattedNetwork}},
+)
+async def get_network_api(id: str):
+    return await network_raise_if_not_found(get_network, id)
+
+
+@network_router.post(
+    "/connect",
+    description="Disconnect a container from network",
+    dependencies=[Depends(token_has_permission([Permission.ConnectContainer]))],
+    responses={200: MESSAGE_OK()},
+)
+async def connect_container_api(
+    network_id: str, container_id: str
+):
+    try:
+        await network_raise_if_not_found(
+            connect_container, network_id, container_id
+        )
+        return JSONResponse({"message": "ok"})
+    except ContainerNotFound:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "message": "container not found",
+                "id": container_id,
+            },
+        )
+
+
+@network_router.delete(
+    "/disconnect",
+    description="Disconnect a container from network",
+    dependencies=[Depends(token_has_permission([Permission.DisconnectContainer]))],
+    responses={200: MESSAGE_OK()},
+)
+async def disconnect_container_api(
+    network_id: str, container_id: str, force: bool = False
+):
+    try:
+        await network_raise_if_not_found(
+            disconnect_container, network_id, container_id, force
+        )
+        return JSONResponse({"message": "ok"})
+    except ContainerNotFound:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "message": "container not found",
+                "id": container_id,
+            },
+        )
+
+
+@network_router.delete(
+    "",
+    description="Delete specific network by ID",
+    dependencies=[Depends(token_has_permission([Permission.DeleteNetwork]))],
+    responses={200: MESSAGE_OK()},
+)
+async def remove_network_api(id: str):
+    await network_raise_if_not_found(remove_network, id)
+    return JSONResponse({"message": "ok"})
+
+
+@network_router.delete(
+    "/prune",
+    description="Prune network",
+    dependencies=[Depends(token_has_permission([Permission.PruneNetwork]))],
+    responses={200: MESSAGE_OK()},
+)
+async def prune_network_api():
+    await network_raise_if_not_found(prune_network)
+    return JSONResponse({"message": "ok"})
+
+
 router.include_router(container_router)
 router.include_router(image_router)
 router.include_router(volume_router)
+router.include_router(network_router)
