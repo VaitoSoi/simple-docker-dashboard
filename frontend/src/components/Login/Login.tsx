@@ -54,7 +54,7 @@ export default function () {
             localStorage.setItem("token", response.data.access_token);
             localStorage.setItem("username", response.data.user.username);
             success("Logined");
-            navigator("/");
+            navigator("/", { viewTransition: true });
         } catch (err) {
             if (err instanceof AxiosError) {
                 if (err.status == 404)
@@ -90,10 +90,33 @@ export default function () {
                 }
             } else {
                 console.error(err);
-                if (err instanceof Error) 
+                if (err instanceof Error)
                     error(err.message);
             }
         }
+    }
+
+    function handlerLogin() {
+        if (!username || !password) {
+            setNotFillUserName(!username);
+            setNotFillPassword(!password);
+        } else login();
+    }
+
+    function handlerSignup() {
+        if (!username || !password || !confirmPassword) {
+            setNotFillUserName(!username);
+            setNotFillPassword(!password);
+            setNotFillConfirmPassword(!confirmPassword);
+        }
+        else if (password != confirmPassword) {
+            setNotMatchPassword(true);
+        }
+        else if (!UsernameRegex.test(username))
+            setInvalidUsername(true);
+        else if (password.length < 8)
+            setInvalidPassword(true);
+        else signup();
     }
 
     return <div className="h-150 w-250 m-auto rounded-2xl border-2 border-gray-400 flex flex-row relative overflow-hidden">
@@ -107,6 +130,7 @@ export default function () {
                 <p className="text-lg text-center w-10/12">This is a very simple Docker Dashboard. Allow you to monitor your Docker container, also view your container logs</p>
             </div>
         </div>
+
         {/* Login */}
         <Card className={`w-1/2 h-full absolute transition-all duration-700 ease-in-out z-0 ${isOnLoginPage
             ? 'translate-x-full opacity-100 z-10 rounded-tl-none rounded-bl-none rounded-tr-2xl rounded-br-2xl'
@@ -152,6 +176,7 @@ export default function () {
                                 setNotFillPassword(false);
                                 setWrongPassword(false);
                             }}
+                            onKeyDown={(event) => event.key.toLowerCase() == "enter" && handlerLogin()}
                         />
                         {
                             notFillPassword
@@ -166,12 +191,7 @@ export default function () {
                 <CardFooter className="flex-col gap-2">
                     <Button
                         className="w-full"
-                        onClick={async () => {
-                            if (!username || !password) {
-                                setNotFillUserName(!username);
-                                setNotFillPassword(!password);
-                            } else login();
-                        }}
+                        onClick={async () => handlerLogin()}
                     >
                         Login
                     </Button>
@@ -248,6 +268,7 @@ export default function () {
                                 setNotMatchPassword(false);
                                 setNotFillConfirmPassword(false);
                             }}
+                            onKeyDown={(event) => event.key.toLowerCase() == "enter" && handlerSignup()}
                         />
                         {
                             notMatchPassword
@@ -262,21 +283,7 @@ export default function () {
                 <CardFooter className="flex-col gap-2">
                     <Button
                         className="w-full"
-                        onClick={() => {
-                            if (!username || !password || !confirmPassword) {
-                                setNotFillUserName(!username);
-                                setNotFillPassword(!password);
-                                setNotFillConfirmPassword(!confirmPassword);
-                            }
-                            else if (password != confirmPassword) {
-                                setNotMatchPassword(true);
-                            }
-                            else if (!UsernameRegex.test(username))
-                                setInvalidUsername(true);
-                            else if (password.length < 8)
-                                setInvalidPassword(true);
-                            else signup();
-                        }}
+                        onClick={() => handlerSignup()}
                     >
                         Sign up
                     </Button>
