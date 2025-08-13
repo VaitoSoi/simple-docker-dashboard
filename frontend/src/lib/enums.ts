@@ -1,6 +1,6 @@
 export enum Permission {
     Administrator = 0,
-    
+
     Containers = 1,
     SeeContainers = 11,
     RenameContainer = 12,
@@ -13,7 +13,11 @@ export enum Permission {
     Resource = 19,
     PruneContainer = 110,
     SeeContainerRaw = 111,
-    ExecuteCommand = 112,
+    InspectContainer = 112,
+    ExecuteCommand = 113,
+    LsContainer = 114,
+    CatContainer = 115,
+    DownloadContainer = 116,
 
     Images = 2,
     SeeImages = 21,
@@ -24,11 +28,16 @@ export enum Permission {
     SeeVolumes = 31,
     LsVolume = 32,
     CatVolume = 33,
-    DeleteVolume = 34,
-    PruneVolume = 35,
+    DownloadVolume = 34,
+    DeleteVolume = 35,
+    PruneVolume = 36,
 
     Networks = 4,
-    
+    SeeNetwork = 41,
+    DisconnectContainer = 42,
+    RemoveNetwork = 43,
+    PruneNetwork = 44,
+
     Roles = 8,
     SeeRoles = 81,
     CreateRole = 82,
@@ -41,6 +50,7 @@ export enum Permission {
     SeeUsers = 91,
     UpdateUsers = 92,
     DeleteUsers = 93,
+
 }
 
 export const UsernameRegex = /^[0-9a-z_]+$/;
