@@ -21,6 +21,7 @@ import { error, info } from "@/hooks/toasts";
 import { Checkbox } from "../ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import type { DirEntryAPI } from "@/lib/typing";
+import { Axios, AxiosError } from "axios";
 
 interface DirEntry extends DirEntryAPI {
     isGoBack?: true
@@ -78,7 +79,11 @@ export default function ({ id }: { id: string }) {
             }
         } catch (e) {
             setErrored(true);
+            if (e instanceof AxiosError && e.status == 403)
+                return error("You can't see this content D:");
             console.error(e);
+            if (e instanceof Error)
+                error(e.message);
         }
     }
 
@@ -112,6 +117,8 @@ export default function ({ id }: { id: string }) {
             setIsRunningCommand(false);
         } catch (e) {
             setErrored(true);
+            if (e instanceof AxiosError && e.status == 403)
+                return error("You can't download this content D:");
             console.error(e);
             if (e instanceof Error)
                 error(e.message);

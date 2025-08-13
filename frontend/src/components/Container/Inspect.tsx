@@ -1,4 +1,6 @@
+import { error } from "@/hooks/toasts";
 import api from "@/lib/api";
+import { AxiosError } from "axios";
 import { useEffect, useState } from "react";
 
 export default function ({ id }: { id: string }) {
@@ -15,8 +17,13 @@ export default function ({ id }: { id: string }) {
                 }
             });
             setInspectInfo(JSON.stringify(response.data, null, 4).split("\n"));
-        } catch (error) {
+        } catch (err) {
             setErrored(true);
+            if (err instanceof AxiosError && err.status == 403)
+                return error("You can't see this content D:");
+            console.error(err);
+            if (err instanceof Error)
+                error(err.message);
         }
     }
 

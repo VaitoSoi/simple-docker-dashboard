@@ -38,13 +38,17 @@ export default function () {
                     const data = err.response.data;
                     const message: string = data.detail.message;
                     if (message == "username already existed")
-                        error("Username already existed");
+                        return error("Username already existed");
                     else if (message == "invalid username")
-                        error("Invalid username");
+                        return error("Invalid username");
                     else if (message == "invalid password")
-                        error("Invalid password");
+                        return error("Invalid password");
                 }
             }
+            if (err instanceof AxiosError && err.status == 403)
+                return error("You can't see this content D:");
+            if (err instanceof Error)
+                error(err.message);
         }
     }
 

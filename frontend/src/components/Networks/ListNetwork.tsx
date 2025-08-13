@@ -28,6 +28,7 @@ import { HuhError } from "@/components/ui/icon";
 import { error, success } from "@/hooks/toasts";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
 import { Checkbox } from "../ui/checkbox";
+import { AxiosError } from "axios";
 
 export default function () {
     const token = localStorage.getItem("token");
@@ -58,7 +59,8 @@ export default function () {
             setContainers(response.data.map((container) => container.name || container.short_id));
         } catch (e) {
             setErrored(true);
-            console.error(e);
+            if (e instanceof Error)
+                error(e.message);
         }
     }
 
@@ -88,7 +90,8 @@ export default function () {
             setIsRunningCommand(false);
         } catch (e) {
             setErrored(true);
-            console.error(e);
+            if (e instanceof Error)
+                error(e.message);
         }
     }
 
@@ -177,6 +180,8 @@ export default function () {
         } catch (err) {
             getNetworks();
             console.error(err);
+            if (err instanceof AxiosError && err.status == 403)
+                return error("You can't execute this command D:");
             setIsRunningCommand(false);
             error("Can't disconnect container(s) D:");
         }

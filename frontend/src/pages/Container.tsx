@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import api from "@/lib/api";
 import { AxiosError } from "axios";
 import { error } from "@/hooks/toasts";
-import { HuhError, HuhWhale, Loading } from "@/components/ui/icon";
+import { Forbidden, HuhError, HuhWhale, Loading } from "@/components/ui/icon";
 import Top from "@/components/Container/Top";
 import { type APIContainer } from "@/lib/typing";
 import RightPannel from "@/components/Container/RightPannel";
@@ -16,9 +16,14 @@ import Explorer from "@/components/Container/Explorer";
 export default function () {
     const token = localStorage.getItem('token');
     const navigator = useNavigate();
-    const [containerExist, setContainerExist] = useState<boolean>(null);
+
+    const [allowToSee, setAllowToSee] = useState<boolean>(false);
+
     const [name, setName] = useState<string>("");
+    const [containerExist, setContainerExist] = useState<boolean>(null);
+
     const [errored, setErrored] = useState<boolean>(false);
+
     const { id } = useParams();
 
     useEffect(() => void checkContainerExist(), []);
@@ -31,6 +36,7 @@ export default function () {
                     Authorization: `Bearer ${token}`
                 }
             });
+            setAllowToSee(true);
             setContainerExist(true);
             setName(response.data.name);
         } catch (e) {
@@ -38,8 +44,11 @@ export default function () {
                 if (e.status == 404)
                     return setContainerExist(false);
 
-                else if (e.status == 401) 
+                else if (e.status == 401)
                     return navigator("/login");
+
+                else if (e.status == 403)
+                    return setAllowToSee(false);
             }
 
             console.error(e);
@@ -52,17 +61,19 @@ export default function () {
     const [reloadLogs, setReloadLogs] = useState<boolean>(false);
 
     return <>{
-        !containerExist || errored
+        !containerExist || !allowToSee || errored
             ? <div className="w-screen h-screen flex">
                 <div className="m-auto flex flex-col items-center">{
                     errored
                         ? <HuhError />
-                        : containerExist === null
-                            ? <Loading />
-                            : <>
-                                <HuhWhale className="size-50" />
-                                <p className="text-3xl">Container <span className="font-bold">{id}</span> not exists</p>
-                            </>
+                        : !allowToSee
+                            ? <Forbidden />
+                            : containerExist === null
+                                ? <Loading />
+                                : <>
+                                    <HuhWhale className="size-50" />
+                                    <p className="text-3xl">Container <span className="font-bold">{id}</span> not exists</p>
+                                </>
                 }</div>
             </div>
             : <div className="h-screen w-screen flex flex-col">
@@ -83,7 +94,7 @@ export default function () {
                         <TabsTrigger value="top"><p className="text-lg">Proccess</p></TabsTrigger>
                         <TabsTrigger value="explorer"><p className="text-lg">Explorer</p></TabsTrigger>
                     </TabsList>
-                    <div className="h-18/20">    
+                    <div className="h-18/20">
                         <TabsContent className="h-full" value="logs"><Logs id={id} reload={reloadLogs} /></TabsContent>
                         <TabsContent className="h-full" value="inspect"><Inspect id={id} /></TabsContent>
                         <TabsContent className="h-full" value="top"><Top id={id} /></TabsContent>

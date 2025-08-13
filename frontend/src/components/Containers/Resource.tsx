@@ -3,6 +3,7 @@ import api from "../../lib/api";
 import { Cpu, MemoryStick } from "lucide-react";
 import { AngyWhale, HuhWhale, Whale } from "../ui/icon";
 import { AxiosError } from "axios";
+import { error } from "@/hooks/toasts";
 
 interface ResourceUsage {
     docker: number,
@@ -40,6 +41,9 @@ export default function () {
             else
                 setErrored(true);
             clearRefreshInterval();
+            console.error(e);
+            if (e instanceof Error)
+                error(e.message);
         }
     }
     useEffect(() => {

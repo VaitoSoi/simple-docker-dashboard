@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ms from "ms";
 import api from "../../lib/api";
 import { type APIContainer, type APIImage } from "@/lib/typing";
@@ -26,6 +26,7 @@ import {
     ChevronLeft,
     ChevronRight,
     MoreVertical,
+    Pencil,
     Play,
     RefreshCw,
     Scroll,
@@ -37,6 +38,7 @@ import { HuhError } from "@/components/ui/icon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { error, info, success } from "@/hooks/toasts";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
 
 interface Container extends APIContainer {
     imageHubUrl: string,
@@ -51,6 +53,8 @@ export default function () {
     const [errored, setErrored] = useState<boolean>(false);
     const [isRunningCommand, setIsRunningCommand] = useState<boolean>(false);
 
+    const [selectedContainerForRename, setSelectedContainerForRename] = useState<string>("");
+    const newName = useRef<string>("");
 
     useEffect(() => void getContainers(), []);
     async function getContainers() {
@@ -96,10 +100,22 @@ export default function () {
             // })));
         } catch (e) {
             setErrored(true);
+            if (e instanceof AxiosError && e.status == 403)
+                return error("You can't list containers D:");
             console.error(e);
-            if (!(e instanceof AxiosError))
-                console.error(e);
+            if (e instanceof Error)
+                error(e.message);
         }
+    }
+
+    async function newNameHandler() {
+        if (!selectedContainerForRename)
+            return;
+        if (!newName.current)
+            return error("Please provide new name.");
+        await rename(selectedContainerForRename, newName.current);
+        setSelectedContainerForRename("");
+        newName.current = "";
     }
 
     async function start(id: string) {
@@ -166,21 +182,21 @@ export default function () {
             error("Can't restart container D:");
         }
     }
-    // async function rename(id: string, newName: string) {
-    //     try {
-    //         setIsRunningCommand(true);
-    //         await api.post(`/docker/rename?id=${id}&new_name=${newName}`, {}, {
-    //             headers: {
-    //                 Authorization: `Bearer ${token}`
-    //             }
-    //         });
-    //         success("renameped container");
-    //         getContainer();
-    //     } catch {
-    //         setIsRunningCommand(false);
-    //         error("Can't rename container D:");
-    //     }
-    // }
+    async function rename(id: string, newName: string) {
+        try {
+            setIsRunningCommand(true);
+            await api.post(`/docker/container/rename?id=${id}&new_name=${newName}`, {}, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+            success("Renamed container");
+            getContainers();
+        } catch {
+            setIsRunningCommand(false);
+            error("Can't rename container D:");
+        }
+    }
     async function remove(id: string) {
         try {
             setIsRunningCommand(true);
@@ -318,6 +334,13 @@ export default function () {
                                     <DropdownMenuContent>
                                         <DropdownMenuItem
                                             className="cursor-pointer"
+                                            onClick={() => setSelectedContainerForRename(row.original.name)}
+                                        >
+                                            <Pencil />
+                                            <p>Rename</p>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            className="cursor-pointer"
                                             disabled={!isRunning}
                                             onClick={() => restart(id)}
                                         >
@@ -377,6 +400,40 @@ export default function () {
                 <HuhError />
             </div>
             : <div>
+                <Dialog open={!!selectedContainerForRename} onOpenChange={(open) => {
+                    if (open) return;
+                    setSelectedContainerForRename("");
+                    newName.current = "";
+                }}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>
+                                Rename your container
+                            </DialogTitle>
+                            <DialogDescription>
+                                Choose a nice name for your container &lt;3
+                            </DialogDescription>
+                        </DialogHeader>
+                        <Input
+                            placeholder="New name"
+                            onChange={(event) => newName.current = event.target.value}
+                            onKeyDown={(event) => {
+                                if(event.key.toLowerCase() != "enter") return; 
+                                newNameHandler();
+                            }}
+                        />
+                        <DialogFooter>
+                            <Button
+                                variant="secondary"
+                                onClick={() =>  newNameHandler()}
+                            >Rename</Button>
+                            <Button
+                                variant="secondary"
+                                onClick={() => setSelectedContainerForRename("")}
+                            >Close</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
                 <div className="flex flex-row items-center">
                     <Input placeholder="Search" className="h-10 w-1/4"
                         value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}

@@ -79,6 +79,8 @@ export default function ({ id }: { id: string }) {
         } catch (e) {
             setErrored(true);
             console.error(e);
+            if (e instanceof Error)
+                error(e.message);
         }
     }
 

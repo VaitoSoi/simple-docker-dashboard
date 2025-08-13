@@ -13,7 +13,7 @@ export function List() {
     const navigator = useNavigate();
 
     const token = localStorage.getItem("token");
-    const [allowToSee, setAllowToSee] = useState<boolean | null>(null);
+    const [allowToSee, setAllowToSee] = useState<boolean>(false);
     const [errored, setErrored] = useState<boolean>(false);
 
     async function getPermission() {

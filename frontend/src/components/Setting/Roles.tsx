@@ -21,7 +21,7 @@ export default function () {
     const token = localStorage.getItem("token");
 
     const [roles, setRoles] = useState<Role[]>([]);
-    const [allowToEdit, setAllowToEdit] = useState<boolean>(true);
+    const [allowToEdit, setAllowToEdit] = useState<boolean>(false);
 
     const [activeTab, setActiveTab] = useState<string>();
     const createNewRoleRef = useRef<HTMLDivElement>(null);
@@ -40,6 +40,7 @@ export default function () {
                     Authorization: `Bearer ${token}`
                 }
             });
+            setAllowToEdit(true);
         } catch (err) {
             if (err instanceof AxiosError && err.status == 403)
                 return setAllowToEdit(false);

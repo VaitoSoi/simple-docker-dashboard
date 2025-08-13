@@ -88,11 +88,11 @@ export default function () {
                     });
             setVolumes(volumes);
             setIsRunningCommand(false);
-        } catch (e) {
+        } catch (err) {
             setErrored(true);
-            console.error(e);
-            if (!(e instanceof AxiosError))
-                console.error(e);
+            console.error(err);
+            if (err instanceof Error)
+                error(err.message);
         }
     }
 

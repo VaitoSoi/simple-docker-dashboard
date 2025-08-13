@@ -28,9 +28,11 @@ export function AngyWhaleWand({ ...props }: ComponentProps<"img">) {
 
 
 export function Forbidden({ className, ...props }: ComponentProps<"div">) {
-    return <div className={cn("flex flex-col items-center", className)} {...props}>
-        <AngyWhale className="size-50" />
-        <p className="text-4xl font-semibold">You are not allow to see this </p>
+    return <div className={cn("w-full h-full flex", className)} {...props}>
+        <div className="m-auto flex flex-col items-center">
+            <AngyWhale className="size-50" />
+            <p className="text-4xl">You are not allow to see this </p>
+        </div>
     </div>;
 }
 

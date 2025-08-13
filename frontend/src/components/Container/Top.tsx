@@ -4,6 +4,7 @@ import { flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-tabl
 import { useEffect, useState } from "react";
 import { HuhError } from "../ui/icon";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
+import { AxiosError } from "axios";
 
 interface Top {
     UID: string,
@@ -30,10 +31,13 @@ export default function ({ id }: { id: string }) {
                 }
             });
             setData(response.data);
-        } catch (e) {
+        } catch (err) {
             setErrored(true);
-            if (e instanceof Error)
-                error(e.message);
+            if (err instanceof AxiosError && err.status == 403)
+                return error("You can't see this content D:");
+            console.error(err);
+            if (err instanceof Error)
+                error(err.message);
         }
     }
 

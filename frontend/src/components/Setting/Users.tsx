@@ -29,8 +29,8 @@ export default function () {
     const [roles, setRoles] = useState<Role[]>([]);
     const [users, setUsers] = useState<User[]>([]);
 
-    const [allowToEdit, setAllowToEdit] = useState<boolean>(true);
-    const [allowToEditRoles, setAllowToEditRoles] = useState<boolean>(true);
+    const [allowToEdit, setAllowToEdit] = useState<boolean>(false);
+    const [allowToEditRoles, setAllowToEditRoles] = useState<boolean>(false);
 
     const [activeTab, setActiveTab] = useState<string>();
     const createNewUserRef = useRef<HTMLDivElement>(null);
@@ -43,6 +43,7 @@ export default function () {
                     Authorization: `Bearer ${token}`
                 }
             });
+            setAllowToEdit(true);
         } catch (err) {
             if (err instanceof AxiosError && err.status == 403)
                 return setAllowToEdit(false);
@@ -58,6 +59,7 @@ export default function () {
                     Authorization: `Bearer ${token}`
                 }
             });
+            setAllowToEdit(true);
         } catch (err) {
             if (err instanceof AxiosError && err.status == 403)
                 return setAllowToEditRoles(false);

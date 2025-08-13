@@ -27,6 +27,7 @@ import { HuhError } from "@/components/ui/icon";
 import { error, success } from "@/hooks/toasts";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { AxiosError } from "axios";
 
 export interface Image extends APIImage {
     using: APIContainer[]
@@ -54,9 +55,13 @@ export default function () {
             );
 
             setContainers(response.data);
-        } catch (e) {
+        } catch (err) {
             setErrored(true);
-            console.error(e);
+            if (err instanceof AxiosError && err.status == 403)
+                return error("You can't see this content D:");
+            console.error(err);
+            if (err instanceof Error)
+                error(err.message);
         }
     }
 
@@ -84,7 +89,11 @@ export default function () {
             setIsRunningCommand(false);
         } catch (e) {
             setErrored(true);
+            if (e instanceof AxiosError && e.status == 403)
+                return error("You can't see this content D:");
             console.error(e);
+            if (e instanceof Error)
+                error(e.message);
         }
     }
 

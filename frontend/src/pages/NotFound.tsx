@@ -10,13 +10,13 @@ export default function () {
     useEffect(() => {
         interval.current = setInterval(() => {
             setWarnLevel((lastLevel) => lastLevel + 1);
-        }, 10_000);
+        }, 5_000);
         return () => clearInterval(interval.current);
     }, []);
     useEffect(() => {
         if (warnLevel >= 4) {
             clearInterval(interval.current);
-            setTimeout(() => navigator("/"), 100);
+            setTimeout(() => navigator("/"), 500);
         }
     }, [warnLevel]);
 
