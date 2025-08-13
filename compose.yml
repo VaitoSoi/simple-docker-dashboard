@@ -5,7 +5,7 @@ services:
       - 8000:8000
     env_file: docker.env
     volumes:
-      - ./backend/data/database.db:/backend/data/database.db 
+      - ./backend/data:/backend/data 
       - /var/run/docker.sock:/var/run/docker.sock # To communicate with Docker Engine
     networks:
       - sdd
