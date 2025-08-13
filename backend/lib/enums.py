@@ -36,6 +36,11 @@ class Permission(Enum):
     PruneVolume = 36
 
     Networks = 4
+    SeeNetwork = 41
+    ConnectContainer = 42
+    DisconnectContainer = 43
+    DeleteNetwork = 44
+    PruneNetwork = 45
     
     Roles = 8
     SeeRoles = 81
