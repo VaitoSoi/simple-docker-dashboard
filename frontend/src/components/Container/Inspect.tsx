@@ -2,6 +2,7 @@ import { error } from "@/hooks/toasts";
 import api from "@/lib/api";
 import { AxiosError } from "axios";
 import { useEffect, useState } from "react";
+import { HuhError } from "../ui/icon";
 
 export default function ({ id }: { id: string }) {
     const token = localStorage.getItem("token");
@@ -27,9 +28,15 @@ export default function ({ id }: { id: string }) {
         }
     }
 
-    return <div className="w-full h-full p-4 bg-gray-800 border rounded-md overflow-scroll">
-        {inspectInfo?.map((line) =>
-            <p className="text-white font-mono whitespace-pre">{line}</p>
-        )}
-    </div>;
+    return <>{
+        errored
+            ? <div className="rounded-md border p-20 flex flex-col items-center">
+                <HuhError />
+            </div>
+            : <div className="w-full h-full p-4 bg-gray-800 border rounded-md overflow-scroll">
+                {inspectInfo?.map((line) =>
+                    <p className="text-white font-mono whitespace-pre">{line}</p>
+                )}
+            </div>
+    }</>;
 }

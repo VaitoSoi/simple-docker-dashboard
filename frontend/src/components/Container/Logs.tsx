@@ -6,7 +6,7 @@ import api from "@/lib/api";
 import type { APIUser } from "@/lib/typing";
 import { Permission } from "@/lib/enums";
 import { error } from "@/hooks/toasts";
-import { Forbidden, Loading } from "@/components/ui/icon";
+import { Forbidden, HuhError, Loading } from "@/components/ui/icon";
 import { Switch } from "@/components/ui/switch";
 
 export default function ({ id, reload }: { id: string, reload: boolean }) {
@@ -105,28 +105,32 @@ export default function ({ id, reload }: { id: string, reload: boolean }) {
     }, [reload]);
 
     return <>{
-        !allowToSee
-            ? <div className="flex w-full h-full rounded-md border">{
-                allowToSee == null
-                    ? <Loading className="m-auto" />
-                    : <Forbidden className="m-auto" />
-            }</div>
-            : <div className="h-full w-full flex flex-col">
-                <div className="flex h-fit flex-row items-center">
-                    <Switch
-                        checked={autoScroll}
-                        onCheckedChange={(checked) => setAutoScroll(checked)}
-                    />
-                    <p className="text-lg ml-2">Stick to the bottom</p>
-                </div>
-                <div className="bg-gray-800 w-full h-full border rounded-md p-4 overflow-scroll">
-                    {logs.map(log =>
-                        <p className="text-white whitespace-nowrap font-mono">
-                            {log}
-                        </p>
-                    )}
-                    <div ref={logViewer} />
-                </div>
+        errored
+            ? <div className="rounded-md border p-20 flex flex-col items-center">
+                <HuhError />
             </div>
+            : !allowToSee
+                ? <div className="flex w-full h-full rounded-md border">{
+                    allowToSee == null
+                        ? <Loading className="m-auto" />
+                        : <Forbidden className="m-auto" />
+                }</div>
+                : <div className="h-full w-full flex flex-col">
+                    <div className="flex h-fit flex-row items-center">
+                        <Switch
+                            checked={autoScroll}
+                            onCheckedChange={(checked) => setAutoScroll(checked)}
+                        />
+                        <p className="text-lg ml-2">Stick to the bottom</p>
+                    </div>
+                    <div className="bg-gray-800 w-full h-full border rounded-md p-4 overflow-scroll">
+                        {logs.map(log =>
+                            <p className="text-white whitespace-nowrap font-mono">
+                                {log}
+                            </p>
+                        )}
+                        <div ref={logViewer} />
+                    </div>
+                </div>
     }</>;
 }
