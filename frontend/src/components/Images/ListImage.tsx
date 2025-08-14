@@ -23,7 +23,7 @@ import {
     RefreshCw,
     Trash2
 } from "lucide-react";
-import { HuhError } from "@/components/ui/icon";
+import { HuhError, Loading } from "@/components/ui/icon";
 import { error, success } from "@/hooks/toasts";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
@@ -36,6 +36,7 @@ export interface Image extends APIImage {
 export default function () {
     const token = localStorage.getItem("token");
 
+    const [fetched, setFetched] = useState<boolean>(false);
     const [containers, setContainers] = useState<APIContainer[]>([]);
     const [images, setImages] = useState<Image[]>([]);
 
@@ -69,6 +70,8 @@ export default function () {
     async function getImages() {
         if (!containers) return;
         try {
+            setFetched(false);
+
             const response = await api.get<APIImage[]>(
                 `/docker/images`,
                 {
@@ -85,9 +88,11 @@ export default function () {
                     ...image,
                 });
 
+            setFetched(true);
             setImages(images);
             setIsRunningCommand(false);
         } catch (e) {
+            setFetched(true);
             setErrored(true);
             if (e instanceof AxiosError && e.status == 403)
                 return error("You can't see this content D:");
@@ -258,8 +263,20 @@ export default function () {
                             ))}
                         </TableHeader>
                         <TableBody className="text-xl">
-                            {table.getRowModel().rows?.length
+                            {!fetched || !table.getRowModel().rows?.length
                                 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={table.getAllColumns().length} className="h-24 text-center">{
+                                            !fetched
+                                                ? <div className="m-20"><Loading /></div>
+                                                : <div className="m-20">
+                                                    <p className="text-center text-8xl m-4">🔍</p>
+                                                    <p className="text-center text-2xl">No image found</p>
+                                                </div>
+                                        }</TableCell>
+                                    </TableRow>
+                                )
+                                : (
                                     table.getRowModel().rows.map((row) => (
                                         <TableRow
                                             key={row.id}
@@ -272,16 +289,6 @@ export default function () {
                                             ))}
                                         </TableRow>
                                     ))
-                                )
-                                : (
-                                    <TableRow>
-                                        <TableCell colSpan={table.getAllColumns().length} className="h-24 text-center">
-                                            <div className="m-20">
-                                                <p className="text-center text-8xl m-4">🔍</p>
-                                                <p className="text-center text-2xl">No image found</p>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
                                 )
                             }
                         </TableBody>

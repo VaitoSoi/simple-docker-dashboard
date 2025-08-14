@@ -24,7 +24,7 @@ import {
     Trash2,
     Unlink
 } from "lucide-react";
-import { HuhError } from "@/components/ui/icon";
+import { HuhError, Loading } from "@/components/ui/icon";
 import { error, success } from "@/hooks/toasts";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
 import { Checkbox } from "../ui/checkbox";
@@ -32,6 +32,8 @@ import { AxiosError } from "axios";
 
 export default function () {
     const token = localStorage.getItem("token");
+
+    const [fetched, setFetched] = useState<boolean>(false);
 
     const [openingDialog, setOpeningDialog] = useState<string>("");
 
@@ -67,6 +69,8 @@ export default function () {
     useEffect(() => void getNetworks(), []);
     async function getNetworks() {
         try {
+            setFetched(false);
+
             const response = await api.get<APINetwork[]>(
                 `/docker/networks`,
                 {
@@ -86,6 +90,7 @@ export default function () {
                 networks.push(response.data);
             }
 
+            setFetched(true);
             setNetworks(networks);
             setIsRunningCommand(false);
         } catch (e) {
@@ -405,8 +410,20 @@ export default function () {
                             ))}
                         </TableHeader>
                         <TableBody className="text-xl">
-                            {table.getRowModel().rows?.length
+                            {!fetched || !table.getRowModel().rows?.length
                                 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={table.getAllColumns().length} className="h-24 text-center">{
+                                            !fetched
+                                                ? <div className="m-20"><Loading /></div>
+                                                : <div className="m-20">
+                                                    <p className="text-center text-8xl m-4">🔍</p>
+                                                    <p className="text-center text-2xl">No network found</p>
+                                                </div>
+                                        }</TableCell>
+                                    </TableRow>
+                                )
+                                : (
                                     table.getRowModel().rows.map((row) => (
                                         <TableRow
                                             key={row.id}
@@ -419,16 +436,6 @@ export default function () {
                                             ))}
                                         </TableRow>
                                     ))
-                                )
-                                : (
-                                    <TableRow>
-                                        <TableCell colSpan={table.getAllColumns().length} className="h-24 text-center">
-                                            <div className="m-20">
-                                                <p className="text-center text-8xl m-4">🔍</p>
-                                                <p className="text-center text-2xl">No network found</p>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
                                 )
                             }
                         </TableBody>

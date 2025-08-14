@@ -23,7 +23,7 @@ import {
     RefreshCw,
     Trash2
 } from "lucide-react";
-import { HuhError } from "@/components/ui/icon";
+import { HuhError, Loading } from "@/components/ui/icon";
 import { error, success } from "@/hooks/toasts";
 import { useNavigate } from "react-router";
 
@@ -33,6 +33,8 @@ interface Volume extends APIVolume {
 
 export default function () {
     const token = localStorage.getItem("token");
+
+    const [fetched, setFetched] = useState<boolean>(false);
 
     const [containers, setContainers] = useState<Record<string, any>[] | false>(null);
     const [volumes, setVolumes] = useState<Volume[]>([]);
@@ -54,10 +56,12 @@ export default function () {
 
             setContainers(response.data);
         } catch (e) {
+            if (e instanceof AxiosError && e.status == 403)
+                return setContainers(false);
             setErrored(true);
             console.error(e);
-            if (e instanceof AxiosError && e.status == 403)
-                setContainers(false);
+            if (e instanceof Error)
+                error(e.message);
         }
     }
 
@@ -65,6 +69,8 @@ export default function () {
     async function getVolumes() {
         if (containers == null) return;
         try {
+            setFetched(false);
+
             const response = await api.get<APIVolume[]>(
                 `/docker/volumes`,
                 {
@@ -86,6 +92,8 @@ export default function () {
                                 .length
                         ).map(container => container["Name"]?.slice(1) || container["Id"])
                     });
+
+            setFetched(true);
             setVolumes(volumes);
             setIsRunningCommand(false);
         } catch (err) {
@@ -227,8 +235,20 @@ export default function () {
                             ))}
                         </TableHeader>
                         <TableBody className="text-xl">
-                            {table.getRowModel().rows?.length
+                            {!fetched || !table.getRowModel().rows?.length
                                 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={table.getAllColumns().length} className="h-24 text-center">{
+                                            !fetched
+                                                ? <div className="m-20"><Loading /></div>
+                                                : <div className="m-20">
+                                                    <p className="text-center text-8xl m-4">🔍</p>
+                                                    <p className="text-center text-2xl">No volume found</p>
+                                                </div>
+                                        }</TableCell>
+                                    </TableRow>
+                                )
+                                : (
                                     table.getRowModel().rows.map((row) => (
                                         <TableRow
                                             key={row.id}
@@ -241,16 +261,6 @@ export default function () {
                                             ))}
                                         </TableRow>
                                     ))
-                                )
-                                : (
-                                    <TableRow>
-                                        <TableCell colSpan={table.getAllColumns().length} className="h-24 text-center">
-                                            <div className="m-20">
-                                                <p className="text-center text-8xl m-4">🔍</p>
-                                                <p className="text-center text-2xl">No volume found</p>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
                                 )
                             }
                         </TableBody>

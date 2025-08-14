@@ -34,7 +34,7 @@ import {
     Trash2
 } from "lucide-react";
 import { useNavigate } from "react-router";
-import { HuhError } from "@/components/ui/icon";
+import { HuhError, Loading } from "@/components/ui/icon";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { error, info, success } from "@/hooks/toasts";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
@@ -49,6 +49,7 @@ export default function () {
 
     const navigator = useNavigate();
 
+    const [fetched, setFetched] = useState<boolean>(false);
     const [containers, setContainers] = useState<APIContainer[]>([]);
     const [errored, setErrored] = useState<boolean>(false);
     const [isRunningCommand, setIsRunningCommand] = useState<boolean>(false);
@@ -59,6 +60,8 @@ export default function () {
     useEffect(() => void getContainers(), []);
     async function getContainers() {
         try {
+            setFetched(false);
+
             const response = await api.get<APIContainer[]>(
                 `/docker/containers?show_all=True`,
                 {
@@ -86,6 +89,7 @@ export default function () {
             //     );
             // }
 
+            setFetched(true);
             setContainers(response.data);
             setIsRunningCommand(false);
 
@@ -100,6 +104,7 @@ export default function () {
             // })));
         } catch (e) {
             setErrored(true);
+            setFetched(true);
             if (e instanceof AxiosError && e.status == 403)
                 return error("You can't list containers D:");
             console.error(e);
@@ -418,14 +423,14 @@ export default function () {
                             placeholder="New name"
                             onChange={(event) => newName.current = event.target.value}
                             onKeyDown={(event) => {
-                                if(event.key.toLowerCase() != "enter") return; 
+                                if (event.key.toLowerCase() != "enter") return;
                                 newNameHandler();
                             }}
                         />
                         <DialogFooter>
                             <Button
                                 variant="secondary"
-                                onClick={() =>  newNameHandler()}
+                                onClick={() => newNameHandler()}
                             >Rename</Button>
                             <Button
                                 variant="secondary"
@@ -490,8 +495,22 @@ export default function () {
                             ))}
                         </TableHeader>
                         <TableBody className="text-xl">
-                            {table.getRowModel().rows?.length
+                            {!fetched || !table.getRowModel().rows?.length
                                 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={table.getAllColumns().length} className="h-24 text-center">{
+                                            !fetched
+                                                ? <div className="m-20">
+                                                    <Loading />
+                                                </div>
+                                                : <div className="m-20">
+                                                    <p className="text-center text-8xl m-4">🔍</p>
+                                                    <p className="text-center text-2xl">No container found</p>
+                                                </div>
+                                        }</TableCell>
+                                    </TableRow>
+                                )
+                                : (
                                     table.getRowModel().rows.map((row) => (
                                         <TableRow
                                             key={row.id}
@@ -504,16 +523,6 @@ export default function () {
                                             ))}
                                         </TableRow>
                                     ))
-                                )
-                                : (
-                                    <TableRow>
-                                        <TableCell colSpan={table.getAllColumns().length} className="h-24 text-center">
-                                            <div className="m-20">
-                                                <p className="text-center text-8xl m-4">🔍</p>
-                                                <p className="text-center text-2xl">No container found</p>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
                                 )
                             }
                         </TableBody>
