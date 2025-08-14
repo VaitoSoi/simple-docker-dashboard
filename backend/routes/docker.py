@@ -650,7 +650,7 @@ async def network_raise_if_not_found(
 @network_router.get(
     "s",
     description="Get all network",
-    dependencies=[Depends(token_has_permission([Permission.SeeNetwork]))],
+    dependencies=[Depends(token_has_permission([Permission.SeeNetworks]))],
     responses={200: {"model": list[FormattedNetwork]}},
 )
 async def get_networks_api():
@@ -660,7 +660,7 @@ async def get_networks_api():
 @network_router.get(
     "",
     description="Get specific network by ID",
-    dependencies=[Depends(token_has_permission([Permission.SeeNetwork]))],
+    dependencies=[Depends(token_has_permission([Permission.SeeNetworks]))],
     responses={200: {"model": FormattedNetwork}},
 )
 async def get_network_api(id: str):
