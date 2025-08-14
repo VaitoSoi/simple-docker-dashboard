@@ -89,10 +89,15 @@ default_permission = [
     Permission.SeeContainers,
     Permission.SeeContainerRaw,
     Permission.InspectContainer,
+    Permission.LsContainer,
+    Permission.CatContainer,
     Permission.Resource,
     Permission.SeeLogs,
     Permission.SeeImages,
+    Permission.SeeNetworks,
     Permission.SeeVolumes,
+    Permission.LsVolume,
+    Permission.CatVolume,
 ]
 ```
 

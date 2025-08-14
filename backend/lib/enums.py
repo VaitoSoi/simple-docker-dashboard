@@ -36,7 +36,7 @@ class Permission(Enum):
     PruneVolume = 36
 
     Networks = 4
-    SeeNetwork = 41
+    SeeNetworks = 41
     ConnectContainer = 42
     DisconnectContainer = 43
     DeleteNetwork = 44
@@ -60,8 +60,13 @@ default_permission = [
     Permission.SeeContainers,
     Permission.SeeContainerRaw,
     Permission.InspectContainer,
+    Permission.LsContainer,
+    Permission.CatContainer,
     Permission.Resource,
     Permission.SeeLogs,
     Permission.SeeImages,
+    Permission.SeeNetworks,
     Permission.SeeVolumes,
+    Permission.LsVolume,
+    Permission.CatVolume,
 ]
