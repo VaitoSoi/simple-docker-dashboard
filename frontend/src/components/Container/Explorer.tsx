@@ -13,7 +13,7 @@ import {
     getCoreRowModel,
     useReactTable,
 } from "@tanstack/react-table";
-import { HuhError } from "@/components/ui/icon";
+import { HuhError, Loading } from "@/components/ui/icon";
 import { ChevronLeft, Download, FileWarning, RefreshCw } from "lucide-react";
 import { Skeleton } from "../ui/skeleton";
 import { Button } from "../ui/button";
@@ -29,6 +29,8 @@ interface DirEntry extends DirEntryAPI {
 
 export default function ({ id }: { id: string }) {
     const token = localStorage.getItem("token");
+
+    const [fetched, setFetched] = useState<boolean>(false);
 
     const [currentPath, setCurrentPath] = useState<string>("/");
     const [entries, setEntries] = useState<DirEntry[]>([]);
@@ -47,6 +49,7 @@ export default function ({ id }: { id: string }) {
     useEffect(() => void gotoEntry(), [currentPath]);
     async function gotoEntry() {
         try {
+            setFetched(false);
             if (viewingFile) {
                 const response = await api.get<string>(
                     `/docker/container/cat?id=${id}&path=${currentPath}`,
@@ -77,7 +80,9 @@ export default function ({ id }: { id: string }) {
                 ].filter(val => !!val)) as DirEntry[];
                 setEntries(entries);
             }
+            setFetched(true);
         } catch (e) {
+            setFetched(true);
             setErrored(true);
             if (e instanceof AxiosError && e.status == 403)
                 return error("You can't see this content D:");
@@ -263,8 +268,20 @@ export default function ({ id }: { id: string }) {
                             ))}
                         </TableHeader>
                         <TableBody className="text-xl">
-                            {table.getRowModel().rows?.length
+                            {!fetched || !table.getRowModel().rows?.length
                                 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={table.getAllColumns().length} className="h-24 text-center">{
+                                            !fetched
+                                                ? <div className="m-20"><Loading /></div>
+                                                : <div className="m-20">
+                                                    <p className="text-center text-8xl m-4">🔍</p>
+                                                    <p className="text-center text-2xl">No entry found</p>
+                                                </div>
+                                        }</TableCell>
+                                    </TableRow>
+                                )
+                                : (
                                     table.getRowModel().rows.map((row) => (
                                         <TableRow
                                             key={row.id}
@@ -277,16 +294,6 @@ export default function ({ id }: { id: string }) {
                                             ))}
                                         </TableRow>
                                     ))
-                                )
-                                : (
-                                    <TableRow>
-                                        <TableCell colSpan={table.getAllColumns().length} className="h-24 text-center">
-                                            <div className="m-20">
-                                                <p className="text-center text-8xl m-4">🔍</p>
-                                                <p className="text-center text-2xl">No entry found</p>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
                                 )
                             }
                         </TableBody>
