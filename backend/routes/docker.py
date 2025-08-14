@@ -69,6 +69,7 @@ from lib.docker import (
 )
 from lib.enums import Permission
 from lib.errors import (
+    CommandNotFound,
     ContainerNotFound,
     ImageNotFound,
     InvalidPath,
@@ -133,6 +134,31 @@ async def container_raise_if_not_found(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={
                 "message": "container not found",
+                **({"id": kwargs["id"]} if "id" in kwargs else {}),
+            },
+        )
+    
+async def container_raise_if_invalid(
+    func: Callable[..., Awaitable[T]], *args: ..., **kwargs: ...
+) -> T:
+    try:
+        return await volume_raise_if_not_found(func, *args, **kwargs)
+
+    except InvalidPath:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "message": "invalid path",
+                **({"path": kwargs["path"]} if "path" in kwargs else {}),
+                **({"id": kwargs["id"]} if "id" in kwargs else {}),
+            },
+        )
+    
+    except CommandNotFound:
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail={
+                "message": "this container doesn't have command to inspect entry D:",
                 **({"id": kwargs["id"]} if "id" in kwargs else {}),
             },
         )
@@ -204,33 +230,33 @@ async def top_container_api(id: str):
 
 @container_router.get(
     "/ls",
-    description="List all entries in volume",
-    dependencies=[Depends(token_has_permission([Permission.LsVolume]))],
+    description="List all entries in container",
+    dependencies=[Depends(token_has_permission([Permission.LsContainer]))],
     responses={200: {"model": list[DirEntry]}},
 )
 async def ls_container_api(id: str, path: str = ""):
-    return await container_raise_if_not_found(container_ls, id=id, path=path)
+    return await container_raise_if_invalid(container_ls, id=id, path=path)
 
 
 @container_router.get(
     "/cat",
-    description="Cat an entry in volume",
-    dependencies=[Depends(token_has_permission([Permission.CatVolume]))],
+    description="Cat an entry in container",
+    dependencies=[Depends(token_has_permission([Permission.CatContainer]))],
     responses={200: {"model": list[DirEntry]}},
 )
 async def cat_container_api(id: str, path: str):
-    return await container_raise_if_not_found(container_cat, id=id, path=path)
+    return await container_raise_if_invalid(container_cat, id=id, path=path)
 
 
 @container_router.get(
     "/download",
-    description="Download an entry in volume",
-    dependencies=[Depends(token_has_permission([Permission.DownloadVolume]))],
+    description="Download an entry in container",
+    dependencies=[Depends(token_has_permission([Permission.DownloadContainer]))],
     responses={200: {}},
 )
 async def download_container_api(id: str, path: str):
     return Response(
-        content=await container_raise_if_not_found(
+        content=await container_raise_if_invalid(
             container_download, id=id, path=path
         ),
         media_type="application/octet-stream",
@@ -544,6 +570,7 @@ async def volume_raise_if_invalid(
             detail={
                 "message": "invalid path",
                 **({"path": kwargs["path"]} if "path" in kwargs else {}),
+                **({"id": kwargs["id"]} if "id" in kwargs else {}),
             },
         )
 
