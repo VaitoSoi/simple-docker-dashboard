@@ -108,8 +108,8 @@ default_permission = [
 |`USE_HASH`|`true`|`true` or `false`|Please keep this value unchanged if you do not want to mess up the hash function. If you want to change this value, you must delete the database.|
 |`SIGNATURE`|Random string (reset every time you restart)|Any string|Set this value if you don't want to create a new token each time you restart.|
 |`DB_URL`|`sqlite:///database.db`|A SQL DB connection string|Any kind of SQL DB that SQLAlchemy supports|
-|`PORT`|`8000`|A number from 0-65535|Only used when you run this app with uvicorn|
-|`HOST`|`127.0.0.1`|An valid IP|Only used when you run this app with uvicorn|
+|`UVICORN_PORT`|`8000`|A number from 0-65535|Only used when you run this app with uvicorn|
+|`UVICORN_HOST`|`127.0.0.1`|An valid IP|Only used when you run this app with uvicorn|
 
 ## V. How to run
 
