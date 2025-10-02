@@ -58,7 +58,7 @@ Volumes|3
 SeeVolumes|31
 LsVolume|32
 CatVolume|33
-DownloadVolume|34|Like `DownloadContainer`, this is for downloading a file or a folder not image
+DownloadVolume|34|Like `DownloadContainer`, this is for downloading a file or a folder not volume
 DeleteVolume|35
 PruneVolume|36
 **Network group**|-
